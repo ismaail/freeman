@@ -1,6 +1,25 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working on the **freeman** project.
+Always read the imported context files below before starting any task.
+
+@.claude/project-context.md
+@.claude/design-decisions.md
+
+---
+
+## Project Overview
+
+**Freeman** is an open-source, self-hosted, web-based REST API client — a lightweight Postman alternative.
+Built with Laravel 12, it allows teams to manage and execute REST API requests from a browser with no desktop install required.
+
+- **Backend:** Laravel 12 (PHP)
+- **Frontend:** Blade + Alpine.js + Tailwind CSS (no build step — CDN only)
+- **Database:** SQLite (default, ships with Laravel)
+- **Auth:** Laravel session-based auth (no JWT — web app)
+- **HTTP Requests:** Laravel proxies all outgoing API calls via Guzzle (bypasses CORS)
+
+---
 
 ## Commands
 
@@ -8,47 +27,67 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 composer run setup
 ```
-This installs dependencies, copies `.env`, generates app key, runs migrations, installs npm packages, and builds assets.
 
 **Development:**
 ```bash
 composer run dev
 ```
-Runs concurrently: `php artisan serve`, `queue:listen`, `pail` (log viewer), and `vite` (HMR).
+Runs: `php artisan serve`, `queue:listen`, `pail`, and `vite`.
 
 **Testing:**
 ```bash
-composer run test        # Clears config cache, then runs PHPUnit
-php artisan test         # Run all tests
-php artisan test --filter TestName  # Run a single test
+composer run test
+php artisan test
+php artisan test --filter TestName
 ```
 
 **Linting:**
 ```bash
-./vendor/bin/pint        # Fix code style (Laravel Pint)
-./vendor/bin/pint --test # Check without fixing
+./vendor/bin/pint
+./vendor/bin/pint --test
 ```
 
-**Frontend:**
-```bash
-npm run build   # Production build
-npm run dev     # Dev server with HMR
-```
+---
 
-## Architecture
+## Architecture Notes
 
-This is a **Laravel 12** application using:
-- **Vite + Tailwind CSS 4** for frontend assets
-- **SQLite** (default for local dev) — configured in `.env` as `DB_CONNECTION=sqlite`
-- **Database-backed** sessions, cache, and queues (all use the `database` driver by default)
+- Laravel 12 — uses fluent builder pattern in `bootstrap/app.php` (no `Kernel.php`)
+- Middleware, routing, and exception handling configured in `bootstrap/app.php`
+- `routes/web.php` for all routes (no API routes — this is a web app with Blade views)
+- SQLite database at `database/database.sqlite`
+- All outgoing HTTP requests go through `app/Services/RequestRunnerService.php` via Guzzle
+- No frontend build step — Tailwind and Alpine loaded via CDN in the main layout
 
-### Key architectural notes
+---
 
-- `bootstrap/app.php` uses the fluent builder pattern (Laravel 11+), not the traditional `App\Http\Kernel` class.
-- Middleware, exception handling, and routing are configured directly in `bootstrap/app.php`.
-- `routes/web.php` handles HTTP routes; `routes/console.php` defines Artisan commands via closures.
-- No API routes file exists by default — add `routes/api.php` and register it in `bootstrap/app.php` if needed.
+## Code Conventions
 
-### Test environment
+- **Service layer** for all business logic — controllers stay thin
+- **Repository pattern** for all DB queries
+- **Form Requests** for all validation
+- One Blade layout: `resources/views/layouts/app.blade.php`
+- Alpine.js components defined inline in Blade views (no separate JS files unless complex)
+- All responses from `RequestRunnerService` stored in `request_logs` table for history
+- Use named routes everywhere
+- PHPUnit for all tests — test DB is in-memory SQLite (configured in `phpunit.xml`)
 
-PHPUnit uses an in-memory SQLite database (`:memory:`), synchronous queue, and array cache/session — configured in `phpunit.xml`. No `.env.testing` needed for the test DB setup.
+---
+
+## Session Efficiency Rules
+
+- Before implementing any non-trivial feature, decompose into a numbered plan and confirm before coding
+- Read only files directly needed for the current step — never speculatively
+- After completing 2+ sub-tasks, write a session checkpoint with a resume prompt
+- If a bug is not resolved after 3 attempts, stop and ask for specific output
+- Before ending any session, add a `// TODO: [next step]` comment at the continuation point
+- After completing any feature, update `project-context.md` and `design-decisions.md` to reflect changes
+
+---
+
+## User Management
+
+- **Super Admin** is seeded via `php artisan db:seed` — credentials in `.env`
+- Super Admin can create/delete users (username + password only)
+- Users can change their own password after first login
+- No self-registration — all accounts created by Super Admin
+- All data (collections, environments, history) is **per-user and isolated**
