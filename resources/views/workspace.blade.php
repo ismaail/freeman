@@ -402,15 +402,27 @@
                         <option class="text-red-400"    value="DELETE">DELETE</option>
                     </select>
 
-                    {{-- URL input --}}
-                    <input x-model="currentRequest.url"
-                           @keydown.enter="sendRequest()"
-                           type="text"
-                           placeholder="https://api.example.com/endpoint"
-                           class="flex-1 rounded px-4 py-2 text-sm font-mono focus:outline-none transition-colors"
-                           style="background:#1e1e1e; border:1px solid #555; color:#d4d4d4;"
-                           onfocus="this.style.borderColor='rgba(232,96,44,0.6)'"
-                           onblur="this.style.borderColor='#555'"/>
+                    {{-- URL input with {{variable}} backdrop highlighting.
+                         CSS-grid stacking: backdrop + real input share the same grid cell
+                         so they overlap perfectly without absolute positioning issues.  --}}
+                    <div class="flex-1 rounded overflow-hidden url-field-wrap"
+                         :style="urlFocused ? 'border-color:rgba(232,96,44,0.6)' : 'border-color:#555'">
+                        {{-- Backdrop (aria-hidden): renders highlighted copy of the URL --}}
+                        <div x-ref="urlBackdrop"
+                             aria-hidden="true"
+                             class="url-field-back"
+                             x-html="highlightUrl(currentRequest.url)"></div>
+                        {{-- Real input: transparent text → only the caret is visible --}}
+                        <input x-model="currentRequest.url"
+                               x-ref="urlInput"
+                               @keydown.enter="sendRequest()"
+                               @scroll="$refs.urlBackdrop.scrollLeft = $el.scrollLeft"
+                               @focus="urlFocused = true"
+                               @blur="urlFocused = false"
+                               type="text"
+                               placeholder="https://api.example.com/endpoint"
+                               class="url-field-real url-field-input"/>
+                    </div>
 
                     {{-- Send button --}}
                     <button @click="sendRequest()"
@@ -824,9 +836,9 @@
                             <div class="flex-1 overflow-y-auto">
                                 {{-- Body tab --}}
                                 <div x-show="responseTab === 'body'">
-                                    <pre class="p-4 text-xs font-mono whitespace-pre-wrap break-all response-body leading-relaxed"
-                                         style="color:#d4d4d4; tab-size:2;"
-                                         x-text="formatResponseBody(response?.response_body)"></pre>
+                                    <pre class="p-4 text-xs font-mono whitespace-pre-wrap break-all response-body"
+                                         style="tab-size:2; line-height:1.65; color:#d4d4d4;"
+                                         x-html="renderResponseBody(response?.response_body, response?.response_headers)"></pre>
                                 </div>
 
                                 {{-- Headers tab --}}
@@ -862,6 +874,59 @@
     <style>
         .kv-row:hover .kv-del { opacity: 1 !important; }
         select option { background: #2c2c2c; }
+
+        /* ---------- URL field backdrop (CSS-grid stack) ---------- */
+        .url-field-wrap {
+            display: grid;
+            background: #1e1e1e;
+            border: 1px solid #555;
+            border-radius: 4px;
+            transition: border-color .15s;
+            overflow: hidden;
+        }
+        /* Shared typographic baseline — both layers MUST be identical */
+        .url-field-back,
+        .url-field-real {
+            grid-area: 1 / 1;          /* stack in the same cell */
+            padding: 8px 16px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            letter-spacing: 0;
+            white-space: pre;
+            overflow: hidden;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        /* Backdrop: shows the highlighted text */
+        .url-field-back {
+            color: #d4d4d4;
+            pointer-events: none;
+            user-select: none;
+        }
+        /* Real input: transparent value text; only caret visible */
+        .url-field-real {
+            background: transparent;
+            color: transparent;
+            caret-color: #d4d4d4;
+            border: none;
+            outline: none;
+        }
+        .url-field-input { cursor: text; }
+        .url-field-input::placeholder { color: #555; }
+
+        /* ---------- Response body syntax tokens ---------- */
+        .json-key    { color: #9cdcfe; }
+        .json-str    { color: #ce9178; }
+        .json-num    { color: #b5cea8; }
+        .json-bool   { color: #569cd6; }
+        .json-null   { color: #569cd6; }
+        .json-punct  { color: #d4d4d4; }
+        .xml-tag     { color: #4ec9b0; }
+        .xml-bracket { color: #808080; }
+        .xml-attr    { color: #9cdcfe; }
+        .xml-val     { color: #ce9178; }
+        .xml-comment { color: #6a9955; font-style: italic; }
     </style>
 
     {{-- ================================================================
@@ -901,6 +966,9 @@
                 auth_type: 'none',
                 auth_data: { token: '', username: '', password: '', key: '', value: '', in: 'header' },
             },
+
+            // URL field
+            urlFocused: false,
 
             // Response
             response: null,
@@ -1174,10 +1242,172 @@
                 return map[status] ? map[status] : '';
             },
 
-            formatResponseBody(body) {
-                if (!body) return '';
-                try { return JSON.stringify(JSON.parse(body), null, 2); }
-                catch { return body; }
+            // ---- URL {{variable}} highlight ----
+
+            highlightUrl(url) {
+                if (!url) return '';
+                return this.escHtml(url).replace(
+                    /\{\{([^}]*)\}\}/g,
+                    '<mark style="background:rgba(232,96,44,0.18);color:#e8a07a;border-radius:2px;padding:0 1px;">{{$1}}</mark>'
+                );
+            },
+
+            // ---- Response body rendering ----
+
+            // Detect content type from response headers object
+            detectContentType(headers) {
+                if (!headers) return 'text';
+                const entry = Object.entries(headers)
+                    .find(([k]) => k.toLowerCase() === 'content-type');
+                if (!entry) return 'text';
+                const v = entry[1].toLowerCase();
+                if (v.includes('json'))                       return 'json';
+                if (v.includes('xml') || v.includes('html')) return 'xml';
+                return 'text';
+            },
+
+            renderResponseBody(body, headers) {
+                if (!body) return '<span style="color:#555;">— empty response —</span>';
+                const type = this.detectContentType(headers);
+                if (type === 'json') return this.highlightJson(body);
+                if (type === 'xml')  return this.highlightXml(body);
+                return this.escHtml(body);
+            },
+
+            // Escape HTML entities in a raw string
+            escHtml(s) {
+                return String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            },
+
+            // JSON syntax highlight — character-level tokeniser (no double-wrap issues)
+            highlightJson(body) {
+                let fmt;
+                try { fmt = JSON.stringify(JSON.parse(body), null, 2); }
+                catch { return '<span class="json-punct">' + this.escHtml(body) + '</span>'; }
+
+                let html = '';
+                let i = 0;
+                const len = fmt.length;
+
+                while (i < len) {
+                    const ch = fmt[i];
+
+                    if (ch === '"') {
+                        // Scan to end of JSON string (respects backslash escapes)
+                        let j = i + 1;
+                        while (j < len) {
+                            if (fmt[j] === '\\') { j += 2; continue; }
+                            if (fmt[j] === '"')  { j++; break; }
+                            j++;
+                        }
+                        const token = fmt.slice(i, j);
+
+                        // Peek ahead to decide: key (followed by colon) or string value
+                        let k = j;
+                        while (k < len && fmt[k] === ' ') k++;
+                        const isKey = fmt[k] === ':';
+
+                        html += isKey
+                            ? `<span class="json-key">${this.escHtml(token)}</span>`
+                            : `<span class="json-str">${this.escHtml(token)}</span>`;
+                        i = j;
+
+                    } else if (fmt.startsWith('true', i)) {
+                        html += '<span class="json-bool">true</span>';  i += 4;
+                    } else if (fmt.startsWith('false', i)) {
+                        html += '<span class="json-bool">false</span>'; i += 5;
+                    } else if (fmt.startsWith('null', i)) {
+                        html += '<span class="json-null">null</span>';  i += 4;
+
+                    } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+                        // Number — scan digits, optional decimal, optional exponent
+                        let j = i;
+                        if (fmt[j] === '-') j++;
+                        while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
+                        if (j < len && fmt[j] === '.') {
+                            j++;
+                            while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
+                        }
+                        if (j < len && (fmt[j] === 'e' || fmt[j] === 'E')) {
+                            j++;
+                            if (j < len && (fmt[j] === '+' || fmt[j] === '-')) j++;
+                            while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
+                        }
+                        html += `<span class="json-num">${fmt.slice(i, j)}</span>`;
+                        i = j;
+
+                    } else {
+                        // Structural punctuation & whitespace
+                        html += this.escHtml(ch);
+                        i++;
+                    }
+                }
+                return html;
+            },
+
+            // XML/HTML syntax highlight — indent then colorise each tag as a unit.
+            // Processing each full tag (<name attrs>) in one regex callback avoids
+            // subsequent regexes accidentally matching inside injected <span> tags.
+            highlightXml(body) {
+                // Step 1: basic indentation
+                let fmt;
+                try {
+                    let depth = 0;
+                    fmt = body
+                        .replace(/>\s*</g, '>\n<')
+                        .split('\n')
+                        .map(raw => {
+                            const line = raw.trim();
+                            if (!line) return null;
+                            if (/^<\//.test(line) || /^-->/.test(line))
+                                depth = Math.max(0, depth - 1);
+                            const out = '  '.repeat(depth) + line;
+                            if (/^<[^/?!]/.test(line) && !line.endsWith('/>') && !/<\//.test(line))
+                                depth++;
+                            return out;
+                        })
+                        .filter(l => l !== null)
+                        .join('\n');
+                } catch { fmt = body; }
+
+                // Step 2: HTML-escape the entire string
+                const esc = this.escHtml(fmt);
+
+                // Step 3: colorise in safe order
+                return esc
+                    // Comments (process before tags — may contain tag-like text inside)
+                    .replace(
+                        /(&lt;!--[\s\S]*?--&gt;)/g,
+                        '<span class="xml-comment">$1</span>'
+                    )
+                    // Processing instructions  <?...?>
+                    .replace(
+                        /(&lt;\?[\s\S]*?\?&gt;)/g,
+                        '<span class="xml-bracket">$1</span>'
+                    )
+                    // Every other tag — processed as ONE unit so attribute sub-patterns
+                    // are only applied inside the captured tag content, never to our
+                    // injected <span class="..."> markup.
+                    // Captures: (1) open bracket+slash  (2) tag name  (3) attributes  (4) close bracket
+                    // [^&]|&(?!gt;) matches any char that isn't the start of &gt;
+                    .replace(
+                        /(&lt;\/?)([\w][\w:.-]*)((?:[^&]|&(?!gt;))*?)(\/?&gt;)/g,
+                        (_, open, tag, attrs, close) => {
+                            // Colour attribute name=value pairs inside this tag only
+                            const coloredAttrs = attrs
+                                .replace(/([\w][\w:.-]*)=/g,
+                                    '<span class="xml-attr">$1</span>=')
+                                .replace(/=("(?:[^"])*")/g,
+                                    '=<span class="xml-val">$1</span>');
+                            return '<span class="xml-bracket">' + open + '</span>'
+                                 + '<span class="xml-tag">'     + tag  + '</span>'
+                                 + coloredAttrs
+                                 + '<span class="xml-bracket">' + close + '</span>';
+                        }
+                    );
             },
 
             responseSize(body) {
