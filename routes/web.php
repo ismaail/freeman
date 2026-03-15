@@ -3,6 +3,8 @@
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChangePasswordController;
+use App\Http\Controllers\CollectionController;
+use App\Http\Controllers\FolderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('workspace'));
@@ -23,6 +25,17 @@ Route::middleware('auth')->group(function () {
 // Authenticated + password change enforced
 Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('/workspace', fn () => view('workspace'))->name('workspace');
+
+    // Collections (JSON)
+    Route::get('/collections', [CollectionController::class, 'index'])->name('collections.index');
+    Route::post('/collections', [CollectionController::class, 'store'])->name('collections.store');
+    Route::patch('/collections/{collection}', [CollectionController::class, 'update'])->name('collections.update');
+    Route::delete('/collections/{collection}', [CollectionController::class, 'destroy'])->name('collections.destroy');
+
+    // Folders (JSON)
+    Route::post('/collections/{collection}/folders', [FolderController::class, 'store'])->name('folders.store');
+    Route::patch('/collections/{collection}/folders/{folder}', [FolderController::class, 'update'])->name('folders.update');
+    Route::delete('/collections/{collection}/folders/{folder}', [FolderController::class, 'destroy'])->name('folders.destroy');
 });
 
 // Super admin only

@@ -19,6 +19,25 @@ class CollectionRepository
     }
 
     /**
+     * All collections with their full tree for a user.
+     *
+     * Folders are returned flat (with their direct requests). The client builds
+     * the hierarchy from parent_folder_id. Direct collection requests (no folder)
+     * are included separately.
+     */
+    public function allForUserWithTree(int $userId): EloquentCollection
+    {
+        return Collection::where('user_id', $userId)
+            ->with([
+                'folders' => fn ($q) => $q->orderBy('name'),
+                'folders.requests' => fn ($q) => $q->orderBy('name'),
+                'requests' => fn ($q) => $q->whereNull('folder_id')->orderBy('name'),
+            ])
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Single collection scoped to user — throws ModelNotFoundException if not found or not owned.
      */
     public function findForUser(int $id, int $userId): Collection
