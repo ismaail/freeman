@@ -96,6 +96,12 @@ _This file is auto-imported by CLAUDE.md. Keep it updated after every feature._
 | `CollectionExportService` | `app/Services/CollectionExportService.php` | Exports collection to Postman v2.1 JSON (GET /collections/{id}/export) |
 | `CollectionImportService` | `app/Services/CollectionImportService.php` | Imports Postman v2.1 JSON file, creates collection/folders/requests recursively (POST /collections/import) |
 
+## Artisan Commands
+
+| Command | Location | Description |
+|---|---|---|
+| `php artisan freeman:install` | `app/Console/Commands/FreemanInstall.php` | Interactive install wizard: copies .env, generates key, creates SQLite file, runs migrations, creates super admin |
+
 ---
 
 ## Key Routes (planned)
@@ -141,3 +147,7 @@ DELETE /admin/users/{id}            → delete user
 | Import/Export collections | ✅ Done |
 | Auth helpers (Bearer/Basic/API Key) | ✅ Done (UI in Auth tab) |
 | Response pretty-print (JSON) | ✅ Done |
+| `freeman:install` wizard | ✅ Done |
+| Error pages (403, 404, 429, 500) | ✅ Done |
+| Rate limiting on POST /run | ✅ Done (60 req/min per user) |
+| README + installation docs | ✅ Done |

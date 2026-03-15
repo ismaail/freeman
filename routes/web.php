@@ -29,8 +29,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('/workspace', fn () => view('workspace'))->name('workspace');
 
-    // Request runner (JSON)
-    Route::post('/run', [RunnerController::class, 'run'])->name('run');
+    // Request runner (JSON) — rate limited to 60 requests/min per user
+    Route::post('/run', [RunnerController::class, 'run'])->name('run')->middleware('throttle:run');
 
     // Collections (JSON)
     Route::get('/collections', [CollectionController::class, 'index'])->name('collections.index');

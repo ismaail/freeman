@@ -1395,7 +1395,7 @@
                 if (!url) return '';
                 return this.escHtml(url).replace(
                     /\{\{([^}]*)\}\}/g,
-                    '<mark style="background:rgba(232,96,44,0.18);color:#e8a07a;border-radius:2px;padding:0 1px;">{{$1}}</mark>'
+                    '<mark style="background:rgba(232,96,44,0.18);color:#e8a07a;border-radius:2px;padding:0 1px;">@{{$1}}</mark>'
                 );
             },
 
