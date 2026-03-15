@@ -126,7 +126,8 @@ DELETE /admin/users/{id}        → delete user
 | Database migrations (all tables) | ✅ Done |
 | Auth (login/logout/change password) | ✅ Done |
 | Super Admin user management | ✅ Done |
-| Collections + folders | ⏳ Not started |
+| Collections + folders | ✅ Done |
+| Saved request CRUD (backend) | ✅ Done |
 | Request builder UI | ⏳ Not started |
 | Request execution (Guzzle proxy) | ⏳ Not started |
 | Environments + variables | ⏳ Not started |

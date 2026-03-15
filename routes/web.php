@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\SavedRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('workspace'));
@@ -36,6 +37,14 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::post('/collections/{collection}/folders', [FolderController::class, 'store'])->name('folders.store');
     Route::patch('/collections/{collection}/folders/{folder}', [FolderController::class, 'update'])->name('folders.update');
     Route::delete('/collections/{collection}/folders/{folder}', [FolderController::class, 'destroy'])->name('folders.destroy');
+
+    // Requests (JSON)
+    Route::get('/requests/{request}', [SavedRequestController::class, 'show'])->name('requests.show');
+    Route::post('/requests', [SavedRequestController::class, 'store'])->name('requests.store');
+    Route::patch('/requests/{savedRequest}', [SavedRequestController::class, 'update'])->name('requests.update');
+    Route::delete('/requests/{savedRequest}', [SavedRequestController::class, 'destroy'])->name('requests.destroy');
+    Route::get('/collections/{collection}/requests', [SavedRequestController::class, 'indexForCollection'])->name('requests.for-collection');
+    Route::get('/collections/{collection}/folders/{folder}/requests', [SavedRequestController::class, 'indexForFolder'])->name('requests.for-folder');
 });
 
 // Super admin only

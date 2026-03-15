@@ -19,6 +19,28 @@ class RequestRepository
     }
 
     /**
+     * All requests in a collection, scoped to owner.
+     */
+    public function forCollection(int $collectionId, int $userId): Collection
+    {
+        return Request::where('collection_id', $collectionId)
+            ->where('user_id', $userId)
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * All requests in a folder, scoped to owner.
+     */
+    public function forFolder(int $folderId, int $userId): Collection
+    {
+        return Request::where('folder_id', $folderId)
+            ->where('user_id', $userId)
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Single request scoped to owner — throws ModelNotFoundException if not found or not owned.
      */
     public function findForUser(int $id, int $userId): Request
