@@ -134,10 +134,10 @@ DELETE /admin/users/{id}            → delete user
 | Super Admin user management | ✅ Done |
 | Collections + folders | ✅ Done |
 | Saved request CRUD (backend) | ✅ Done |
-| Request builder UI | ⏳ Not started |
+| Request builder UI | ✅ Done |
 | Request execution (Guzzle proxy) | ✅ Done |
 | Environments + variables | ✅ Done |
 | Request history | ⏳ Not started |
 | Import/Export collections | ⏳ Not started |
-| Auth helpers (Bearer/Basic/API Key) | ⏳ Not started |
-| Response pretty-print (JSON/XML) | ⏳ Not started |
+| Auth helpers (Bearer/Basic/API Key) | ✅ Done (UI in Auth tab) |
+| Response pretty-print (JSON) | ✅ Done |
