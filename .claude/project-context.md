@@ -123,7 +123,8 @@ DELETE /admin/users/{id}        → delete user
 | Module | Status |
 |---|---|
 | Laravel scaffold + SQLite setup | ✅ Done |
-| Auth (login/logout/change password) | ⏳ Not started |
+| Database migrations (all tables) | ✅ Done |
+| Auth (login/logout/change password) | ✅ Done |
 | Super Admin user management | ⏳ Not started |
 | Collections + folders | ⏳ Not started |
 | Request builder UI | ⏳ Not started |
