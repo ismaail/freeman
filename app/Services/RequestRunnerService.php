@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\RequestRepository;
+use App\Services\EnvironmentService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
@@ -10,7 +11,10 @@ use Illuminate\Support\Carbon;
 
 class RequestRunnerService
 {
-    public function __construct(private RequestRepository $repo) {}
+    public function __construct(
+        private RequestRepository $repo,
+        private EnvironmentService $environmentService,
+    ) {}
 
     /**
      * Execute an outgoing HTTP request and log the result.
@@ -20,6 +24,7 @@ class RequestRunnerService
      * @param  string|null  $body  Raw string for 'raw'; JSON-encoded [{key,value,enabled}] for form types.
      * @param  string|null  $authType  none|bearer|basic|api_key
      * @param  array|null   $authData  Auth credentials keyed by type.
+     * @param  int|null     $environmentId  When provided, resolves variables from this environment.
      * @return array{success:bool, status:int, response_headers:array, response_body:string, response_time_ms:int, error:?string}
      */
     public function run(
@@ -32,7 +37,16 @@ class RequestRunnerService
         ?array $authData = null,
         ?int $userId = null,
         ?int $requestId = null,
+        ?int $environmentId = null,
     ): array {
+        // Resolve environment variables and substitute placeholders.
+        $variables = $userId !== null
+            ? $this->environmentService->getActiveVariables($userId)
+            : [];
+
+        $url     = $this->environmentService->substitute($url, $variables);
+        $headers = $this->substituteHeaderValues($headers, $variables);
+        $body    = $body !== null ? $this->environmentService->substitute($body, $variables) : null;
         $client = new Client([
             'timeout'         => 30,
             'connect_timeout' => 10,
@@ -93,6 +107,24 @@ class RequestRunnerService
         }
 
         return $result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Variable substitution helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Substitute {{variable}} placeholders in header values.
+     */
+    private function substituteHeaderValues(array $headers, array $variables): array
+    {
+        foreach ($headers as &$h) {
+            if (isset($h['value'])) {
+                $h['value'] = $this->environmentService->substitute((string) $h['value'], $variables);
+            }
+        }
+
+        return $headers;
     }
 
     // -------------------------------------------------------------------------

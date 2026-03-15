@@ -13,15 +13,16 @@ class RunnerController extends Controller
     public function run(RunRequestRequest $request): JsonResponse
     {
         $result = $this->runner->run(
-            method:    $request->input('method'),
-            url:       $request->input('url'),
-            headers:   $request->input('headers', []),
-            body:      $request->input('body'),
-            bodyType:  $request->input('body_type'),
-            authType:  $request->input('auth_type'),
-            authData:  $request->input('auth_data'),
-            userId:    auth()->id(),
-            requestId: $request->input('request_id'),
+            method:        $request->input('method'),
+            url:           $request->input('url'),
+            headers:       $request->input('headers', []),
+            body:          $request->input('body'),
+            bodyType:      $request->input('body_type'),
+            authType:      $request->input('auth_type'),
+            authData:      $request->input('auth_data'),
+            userId:        auth()->id(),
+            requestId:     $request->input('request_id'),
+            environmentId: $request->input('environment_id'),
         );
 
         return response()->json($result);

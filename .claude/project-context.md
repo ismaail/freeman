@@ -101,19 +101,25 @@ _This file is auto-imported by CLAUDE.md. Keep it updated after every feature._
 ## Key Routes (planned)
 
 ```
-GET  /                          → redirect to /workspace
-GET  /workspace                 → main app view (Blade SPA-like)
-POST /run                       → execute a request (RequestRunnerService)
-GET  /collections               → list user's collections
-POST /collections               → create collection
-GET  /collections/{id}/export   → download collection JSON
-POST /collections/import        → upload + import collection JSON
-GET  /environments              → list environments
-POST /environments/{id}/activate → set active environment
-GET  /history                   → request history log
-GET  /admin/users               → super admin user management
-POST /admin/users               → create user
-DELETE /admin/users/{id}        → delete user
+GET  /                              → redirect to /workspace
+GET  /workspace                     → main app view (Blade SPA-like)
+POST /run                           → execute a request (RequestRunnerService)
+GET  /collections                   → list user's collections
+POST /collections                   → create collection
+PATCH /collections/{id}             → update collection
+DELETE /collections/{id}            → delete collection
+GET  /collections/{id}/export       → download collection JSON
+POST /collections/import            → upload + import collection JSON
+GET  /environments                  → list environments (with variables)
+POST /environments                  → create environment
+PATCH /environments/{id}            → update environment name + sync variables
+DELETE /environments/{id}           → delete environment
+POST /environments/{id}/activate    → set active environment (deactivates others)
+POST /environments/deactivate       → clear active environment
+GET  /history                       → request history log
+GET  /admin/users                   → super admin user management
+POST /admin/users                   → create user
+DELETE /admin/users/{id}            → delete user
 ```
 
 ---
@@ -130,7 +136,7 @@ DELETE /admin/users/{id}        → delete user
 | Saved request CRUD (backend) | ✅ Done |
 | Request builder UI | ⏳ Not started |
 | Request execution (Guzzle proxy) | ✅ Done |
-| Environments + variables | ⏳ Not started |
+| Environments + variables | ✅ Done |
 | Request history | ⏳ Not started |
 | Import/Export collections | ⏳ Not started |
 | Auth helpers (Bearer/Basic/API Key) | ⏳ Not started |

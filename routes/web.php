@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\CollectionController;
+use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\FolderController;
 use App\Http\Controllers\RunnerController;
 use App\Http\Controllers\SavedRequestController;
@@ -41,6 +42,14 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::post('/collections/{collection}/folders', [FolderController::class, 'store'])->name('folders.store');
     Route::patch('/collections/{collection}/folders/{folder}', [FolderController::class, 'update'])->name('folders.update');
     Route::delete('/collections/{collection}/folders/{folder}', [FolderController::class, 'destroy'])->name('folders.destroy');
+
+    // Environments (JSON)
+    Route::get('/environments', [EnvironmentController::class, 'index'])->name('environments.index');
+    Route::post('/environments', [EnvironmentController::class, 'store'])->name('environments.store');
+    Route::patch('/environments/{id}', [EnvironmentController::class, 'update'])->name('environments.update');
+    Route::delete('/environments/{id}', [EnvironmentController::class, 'destroy'])->name('environments.destroy');
+    Route::post('/environments/{id}/activate', [EnvironmentController::class, 'activate'])->name('environments.activate');
+    Route::post('/environments/deactivate', [EnvironmentController::class, 'deactivate'])->name('environments.deactivate');
 
     // Requests (JSON)
     Route::get('/requests/{request}', [SavedRequestController::class, 'show'])->name('requests.show');
