@@ -1389,7 +1389,7 @@
                 return map[status] ? map[status] : '';
             },
 
-            // ---- URL {{variable}} highlight ----
+            // ---- URL variable highlight ----
 
             highlightUrl(url) {
                 if (!url) return '';
