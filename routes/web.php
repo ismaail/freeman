@@ -35,6 +35,8 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     // Collections (JSON)
     Route::get('/collections', [CollectionController::class, 'index'])->name('collections.index');
     Route::post('/collections', [CollectionController::class, 'store'])->name('collections.store');
+    Route::post('/collections/import', [CollectionController::class, 'import'])->name('collections.import');
+    Route::get('/collections/{collection}/export', [CollectionController::class, 'export'])->name('collections.export');
     Route::patch('/collections/{collection}', [CollectionController::class, 'update'])->name('collections.update');
     Route::delete('/collections/{collection}', [CollectionController::class, 'destroy'])->name('collections.destroy');
 

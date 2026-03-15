@@ -93,8 +93,8 @@ _This file is auto-imported by CLAUDE.md. Keep it updated after every feature._
 |---|---|---|
 | `RequestRunnerService` | `app/Services/RequestRunnerService.php` | Executes outgoing HTTP calls via Guzzle, substitutes env variables, logs to `request_logs` |
 | `EnvironmentService` | `app/Services/EnvironmentService.php` | Resolves active environment, substitutes `{{variables}}` in URLs/headers/body |
-| `CollectionExportService` | `app/Services/CollectionExportService.php` | Exports collection to JSON (Postman-compatible format) |
-| `CollectionImportService` | `app/Services/CollectionImportService.php` | Imports Postman collection JSON |
+| `CollectionExportService` | `app/Services/CollectionExportService.php` | Exports collection to Postman v2.1 JSON (GET /collections/{id}/export) |
+| `CollectionImportService` | `app/Services/CollectionImportService.php` | Imports Postman v2.1 JSON file, creates collection/folders/requests recursively (POST /collections/import) |
 
 ---
 
@@ -138,6 +138,6 @@ DELETE /admin/users/{id}            → delete user
 | Request execution (Guzzle proxy) | ✅ Done |
 | Environments + variables | ✅ Done |
 | Request history | ⏳ Not started |
-| Import/Export collections | ⏳ Not started |
+| Import/Export collections | ✅ Done |
 | Auth helpers (Bearer/Basic/API Key) | ✅ Done (UI in Auth tab) |
 | Response pretty-print (JSON) | ✅ Done |

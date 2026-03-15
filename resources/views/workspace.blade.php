@@ -195,29 +195,91 @@
                         <p class="text-[10px] mt-1" style="color:#555">Save a request to create one</p>
                     </div>
 
+                    {{-- Collections toolbar: Import button --}}
+                    <div x-show="!collectionsLoading" class="flex items-center justify-between px-3 pt-2 pb-1">
+                        <span class="text-[9px] uppercase tracking-widest font-semibold" style="color:#4a4a4a;">Collections</span>
+                        <button @click="importCollection()"
+                                class="text-[10px] transition-colors"
+                                style="color:#666;"
+                                onmouseover="this.style.color='#e8602c'" onmouseout="this.style.color='#666'">
+                            + Import
+                        </button>
+                    </div>
+
+                    {{-- Import notification toast --}}
+                    <div x-show="importNotification"
+                         x-cloak
+                         x-transition.opacity
+                         class="mx-3 mb-2 px-3 py-2 rounded text-[11px]"
+                         :style="importNotification?.ok
+                             ? 'background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.25); color:#4ade80;'
+                             : 'background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#f87171;'"
+                         x-text="importNotification?.msg">
+                    </div>
+
                     {{-- Collections list --}}
                     <div x-show="!collectionsLoading">
                         <template x-for="col in collections" :key="col.id">
                             <div>
                                 {{-- Collection header --}}
-                                <div @click="toggleCollection(col.id)"
-                                     class="flex items-center gap-1.5 px-3 py-2 cursor-pointer select-none transition-colors"
+                                <div class="relative flex items-center gap-1.5 px-3 py-2 select-none transition-colors group"
                                      onmouseover="this.style.background='#2e2e2e'" onmouseout="this.style.background='transparent'">
-                                    <svg class="w-2.5 h-2.5 flex-shrink-0 transition-transform duration-150"
-                                         :style="isCollectionExpanded(col.id) ? 'transform:rotate(90deg); color:#888' : 'color:#555'"
-                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                    <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:#e8602c" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-                                    </svg>
-                                    <span x-text="col.name"
-                                          class="text-xs font-semibold truncate flex-1"
-                                          style="color:#d4d4d4"></span>
-                                    <span x-show="(col.requests||[]).length + (col.folders||[]).length > 0"
+                                    {{-- Clickable area: toggles expand --}}
+                                    <div @click="toggleCollection(col.id)" class="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer">
+                                        <svg class="w-2.5 h-2.5 flex-shrink-0 transition-transform duration-150"
+                                             :style="isCollectionExpanded(col.id) ? 'transform:rotate(90deg); color:#888' : 'color:#555'"
+                                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                        </svg>
+                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:#e8602c" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                                        </svg>
+                                        <span x-text="col.name"
+                                              class="text-xs font-semibold truncate flex-1"
+                                              style="color:#d4d4d4"></span>
+                                    </div>
+                                    {{-- Count badge (hidden when menu visible) --}}
+                                    <span x-show="(col.requests||[]).length + (col.folders||[]).length > 0 && collectionMenuOpen !== col.id"
                                           x-text="(col.requests||[]).length + (col.folders||[]).length"
-                                          class="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                                          class="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 group-hover:hidden"
                                           style="background:#333; color:#777"></span>
+                                    {{-- Three-dot context menu --}}
+                                    <div class="relative flex-shrink-0" @click.stop>
+                                        <button @click="toggleCollectionMenu(col.id)"
+                                                class="p-1 rounded transition-opacity flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                                :class="collectionMenuOpen === col.id ? '!opacity-100' : ''"
+                                                style="color:#777;"
+                                                onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#777'">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                            </svg>
+                                        </button>
+                                        <div x-show="collectionMenuOpen === col.id"
+                                             x-cloak
+                                             @click.outside="collectionMenuOpen = null"
+                                             class="absolute right-0 top-full mt-1 w-40 rounded shadow-2xl z-50 py-1"
+                                             style="background:#2c2c2c; border:1px solid #444;">
+                                            <button @click="exportCollection(col.id); collectionMenuOpen = null"
+                                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                    style="color:#cccccc"
+                                                    onmouseover="this.style.background='#383838'" onmouseout="this.style.background='transparent'">
+                                                <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:#888" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                                </svg>
+                                                Export JSON
+                                            </button>
+                                            <div style="border-top:1px solid #3a3a3a; margin:4px 0;"></div>
+                                            <button @click="deleteCollection(col.id); collectionMenuOpen = null"
+                                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                    style="color:#ef4444"
+                                                    onmouseover="this.style.background='#2a1515'" onmouseout="this.style.background='transparent'">
+                                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                </svg>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {{-- Expanded collection contents --}}
@@ -335,6 +397,14 @@
                 </div>
 
             </div>{{-- end sidebar scroll --}}
+
+        {{-- Hidden file input for collection import --}}
+        <input type="file"
+               x-ref="importFileInput"
+               @change="handleImportFile($event.target.files)"
+               accept=".json,application/json"
+               class="hidden">
+
         </aside>
 
         {{-- ============================================================
@@ -952,6 +1022,8 @@
             expandedCollections: {},
             expandedFolders: {},
             activeRequestId: null,
+            collectionMenuOpen: null,
+            importNotification: null,
 
             // Request being built
             currentRequest: {
@@ -1204,6 +1276,81 @@
                     this.envMenuOpen = false;
                     await this.loadEnvironments();
                 } catch (e) { console.error('deactivateEnvironment:', e); }
+            },
+
+            // ---- Collection context menu ----
+
+            toggleCollectionMenu(id) {
+                this.collectionMenuOpen = this.collectionMenuOpen === id ? null : id;
+            },
+
+            // ---- Export ----
+
+            exportCollection(id) {
+                window.location.href = `/collections/${id}/export`;
+            },
+
+            // ---- Import ----
+
+            importCollection() {
+                this.$refs.importFileInput.value = '';
+                this.$refs.importFileInput.click();
+            },
+
+            async handleImportFile(files) {
+                if (!files || !files[0]) return;
+
+                const formData = new FormData();
+                formData.append('file', files[0]);
+
+                try {
+                    const res  = await fetch('/collections/import', {
+                        method: 'POST',
+                        headers: {
+                            'Accept':       'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: formData,
+                    });
+                    const json = await res.json();
+
+                    if (res.ok) {
+                        this.importNotification = { ok: true, msg: `Imported "${json.data.name}" successfully.` };
+                        await this.loadCollections();
+                    } else {
+                        this.importNotification = { ok: false, msg: json.message || 'Import failed.' };
+                    }
+                } catch (e) {
+                    this.importNotification = { ok: false, msg: 'Network error during import.' };
+                }
+
+                // Auto-dismiss after 4 seconds
+                setTimeout(() => { this.importNotification = null; }, 4000);
+            },
+
+            // ---- Delete collection ----
+
+            async deleteCollection(id) {
+                if (!confirm('Delete this collection and all its requests?')) return;
+                try {
+                    await fetch(`/collections/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept':       'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+                    if (this.activeRequestId !== null) {
+                        // If a request from the deleted collection was open, clear it
+                        this.requestOpen = false;
+                        this.activeRequestId = null;
+                    }
+                    await this.loadCollections();
+                } catch (e) {
+                    console.error('deleteCollection:', e);
+                }
             },
 
             // ---- Key-value row helpers ----
