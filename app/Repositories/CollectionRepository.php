@@ -1,0 +1,101 @@
+<?php
+
+namespace App\Repositories;
+
+use App\Models\Collection;
+use App\Models\CollectionFolder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+
+class CollectionRepository
+{
+    /**
+     * All collections for a user, ordered by name.
+     */
+    public function allForUser(int $userId): EloquentCollection
+    {
+        return Collection::where('user_id', $userId)
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Single collection scoped to user — throws ModelNotFoundException if not found or not owned.
+     */
+    public function findForUser(int $id, int $userId): Collection
+    {
+        return Collection::where('id', $id)
+            ->where('user_id', $userId)
+            ->firstOrFail();
+    }
+
+    /**
+     * Collection with its full folder/request tree loaded.
+     *
+     * Loads all folders (with nested children and their requests) and all
+     * requests that sit directly on the collection (no folder).
+     */
+    public function withTree(int $id, int $userId): Collection
+    {
+        return Collection::where('id', $id)
+            ->where('user_id', $userId)
+            ->with([
+                'folders' => fn ($q) => $q->orderBy('name'),
+                'folders.children' => fn ($q) => $q->orderBy('name'),
+                'folders.requests' => fn ($q) => $q->orderBy('name'),
+                'folders.children.requests' => fn ($q) => $q->orderBy('name'),
+                'requests' => fn ($q) => $q->whereNull('folder_id')->orderBy('name'),
+            ])
+            ->firstOrFail();
+    }
+
+    public function create(int $userId, array $data): Collection
+    {
+        return Collection::create([
+            'user_id' => $userId,
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+        ]);
+    }
+
+    public function update(Collection $collection, array $data): Collection
+    {
+        $collection->update($data);
+
+        return $collection->fresh();
+    }
+
+    public function delete(Collection $collection): void
+    {
+        $collection->delete();
+    }
+
+    // --- Folder methods ---
+
+    public function createFolder(int $collectionId, array $data): CollectionFolder
+    {
+        return CollectionFolder::create([
+            'collection_id' => $collectionId,
+            'parent_folder_id' => $data['parent_folder_id'] ?? null,
+            'name' => $data['name'],
+        ]);
+    }
+
+    public function findFolder(int $folderId, int $collectionId): CollectionFolder
+    {
+        return CollectionFolder::where('id', $folderId)
+            ->where('collection_id', $collectionId)
+            ->firstOrFail();
+    }
+
+    public function updateFolder(CollectionFolder $folder, array $data): CollectionFolder
+    {
+        $folder->update($data);
+
+        return $folder->fresh();
+    }
+
+    public function deleteFolder(CollectionFolder $folder): void
+    {
+        $folder->delete();
+    }
+}
