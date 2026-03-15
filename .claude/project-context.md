@@ -129,7 +129,7 @@ DELETE /admin/users/{id}        → delete user
 | Collections + folders | ✅ Done |
 | Saved request CRUD (backend) | ✅ Done |
 | Request builder UI | ⏳ Not started |
-| Request execution (Guzzle proxy) | ⏳ Not started |
+| Request execution (Guzzle proxy) | ✅ Done |
 | Environments + variables | ⏳ Not started |
 | Request history | ⏳ Not started |
 | Import/Export collections | ⏳ Not started |

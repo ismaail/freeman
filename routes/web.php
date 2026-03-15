@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\RunnerController;
 use App\Http\Controllers\SavedRequestController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,9 @@ Route::middleware('auth')->group(function () {
 // Authenticated + password change enforced
 Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('/workspace', fn () => view('workspace'))->name('workspace');
+
+    // Request runner (JSON)
+    Route::post('/run', [RunnerController::class, 'run'])->name('run');
 
     // Collections (JSON)
     Route::get('/collections', [CollectionController::class, 'index'])->name('collections.index');
