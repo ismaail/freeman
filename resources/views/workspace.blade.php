@@ -15,6 +15,10 @@
 
             <span class="text-sm text-gray-500">{{ auth()->user()->username }}</span>
 
+            @if (auth()->user()->is_super_admin)
+                <a href="{{ route('admin.users.index') }}" class="text-sm text-gray-500 hover:text-gray-700">Users</a>
+            @endif
+
             <a href="{{ route('password.change') }}" class="text-sm text-gray-500 hover:text-gray-700">Change password</a>
 
             <form method="POST" action="{{ route('logout') }}" class="inline">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChangePasswordController;
 use Illuminate\Support\Facades\Route;
@@ -23,3 +24,13 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('/workspace', fn () => view('workspace'))->name('workspace');
 });
+
+// Super admin only
+Route::middleware(['auth', 'must.change.password', 'super.admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::delete('/users/{id}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+    });

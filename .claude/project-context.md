@@ -125,7 +125,7 @@ DELETE /admin/users/{id}        → delete user
 | Laravel scaffold + SQLite setup | ✅ Done |
 | Database migrations (all tables) | ✅ Done |
 | Auth (login/logout/change password) | ✅ Done |
-| Super Admin user management | ⏳ Not started |
+| Super Admin user management | ✅ Done |
 | Collections + folders | ⏳ Not started |
 | Request builder UI | ⏳ Not started |
 | Request execution (Guzzle proxy) | ⏳ Not started |
