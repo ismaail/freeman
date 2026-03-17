@@ -29,14 +29,13 @@
     .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 
-<div class="min-h-screen flex items-center justify-center px-4"
+<div class="min-h-screen flex flex-col"
      style="background: var(--color-bg-base);">
-    <div class="w-full max-w-sm">
 
-        <div class="text-center mb-8">
-            <h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Freeman</h1>
-            <p class="text-sm mt-1" style="color: var(--color-text-muted-3);">REST API Client</p>
-        </div>
+    @include('workspace.topbar', ['standalone' => true])
+
+    <div class="flex-1 flex items-center justify-center px-4">
+    <div class="w-full max-w-sm">
 
         <div class="rounded-xl shadow-sm p-8"
              style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);">
@@ -124,6 +123,7 @@
 
         </div>
 
+    </div>
     </div>
 </div>
 @endsection

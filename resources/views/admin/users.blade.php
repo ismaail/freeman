@@ -47,41 +47,7 @@
 <div class="min-h-screen flex flex-col" x-data="userManager()"
      style="background: var(--color-bg-base);">
 
-    {{-- Nav --}}
-    <header class="px-4 py-3 flex items-center justify-between"
-            style="background: var(--color-bg-elevated); border-bottom: 1px solid var(--color-border-subtle);">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('workspace') }}"
-               class="font-semibold text-sm transition-colors"
-               style="color: var(--color-text-primary);"
-               onmouseover="this.style.color='var(--color-brand)'"
-               onmouseout="this.style.color='var(--color-text-primary)'"
-            >Freeman</a>
-            <span style="color: var(--color-border-strong);">/</span>
-            <span class="text-sm" style="color: var(--color-text-muted-3);">User Management</span>
-        </div>
-
-        <div class="flex items-center gap-4">
-            @if (session('status'))
-                <span class="text-sm" style="color: var(--color-success);"
-                      x-data x-init="setTimeout(() => $el.remove(), 4000)">
-                    {{ session('status') }}
-                </span>
-            @endif
-
-            <span class="text-sm" style="color: var(--color-text-muted-3);">{{ auth()->user()->username }}</span>
-
-            <form method="POST" action="{{ route('logout') }}" class="inline">
-                @csrf
-                <button type="submit"
-                        class="text-sm transition-colors"
-                        style="color: var(--color-text-muted-3);"
-                        onmouseover="this.style.color='var(--color-text-primary)'"
-                        onmouseout="this.style.color='var(--color-text-muted-3)'"
-                >Sign out</button>
-            </form>
-        </div>
-    </header>
+    @include('workspace.topbar', ['standalone' => true])
 
     <main class="flex-1 max-w-3xl w-full mx-auto px-4 py-8">
 

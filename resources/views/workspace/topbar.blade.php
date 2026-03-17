@@ -1,20 +1,25 @@
 {{-- ================================================================
      TOP BAR
+     $standalone (optional, default false): when true, wraps in its own
+     x-data and hides the environment picker (used on non-workspace pages)
 ================================================================ --}}
+@php $standalone ??= false; @endphp
+@if($standalone)<div x-data="{ userMenuOpen: false }">@endif
 <header class="h-12 flex-shrink-0 flex items-center gap-3 px-4"
         style="background:var(--color-bg-elevated); border-bottom:1px solid var(--color-border-subtle);">
 
     {{-- Logo --}}
-    <div class="flex items-center gap-2 mr-2">
+    <a href="{{ route('workspace') }}" class="flex items-center gap-2 mr-2" style="text-decoration:none;">
         <svg class="w-5 h-5" style="color:var(--color-brand)" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
         </svg>
         <span class="text-white font-semibold text-sm tracking-wide select-none">Freeman</span>
-    </div>
+    </a>
 
     <div class="flex-1"></div>
 
-    {{-- Environment picker --}}
+    {{-- Environment picker (workspace only) --}}
+    @unless($standalone)
     <div class="relative">
         <button @click="envMenuOpen = !envMenuOpen"
                 class="flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors select-none"
@@ -60,6 +65,7 @@
             </button>
         </div>
     </div>
+    @endunless
 
     {{-- User menu --}}
     <div class="relative">
@@ -118,3 +124,4 @@
         </div>
     </div>
 </header>
+@if($standalone)</div>@endif
