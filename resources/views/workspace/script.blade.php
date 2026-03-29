@@ -38,6 +38,11 @@ function workspace() {
         activeRequestId: null,
         collectionMenuOpen: null,
         importNotification: null,
+        addCollectionMenuOpen: false,
+        newCollectionModal: false,
+        newCollectionName: '',
+        newCollectionLoading: false,
+        newCollectionError: null,
 
         // Request being built
         currentRequest: {
@@ -312,6 +317,39 @@ function workspace() {
 
         exportCollection(id) {
             window.location.href = `/collections/${id}/export`;
+        },
+
+        // ---- Create collection ----
+
+        async createCollection() {
+            const name = this.newCollectionName.trim();
+            if (!name) return;
+            this.newCollectionLoading = true;
+            this.newCollectionError = null;
+            try {
+                const res  = await fetch('/collections', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':     'application/json',
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ name }),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    this.newCollectionModal = false;
+                    this.newCollectionName  = '';
+                    await this.loadCollections();
+                } else {
+                    this.newCollectionError = json.message || 'Could not create collection.';
+                }
+            } catch (e) {
+                this.newCollectionError = 'Network error.';
+            } finally {
+                this.newCollectionLoading = false;
+            }
         },
 
         // ---- Import ----

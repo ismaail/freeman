@@ -60,15 +60,40 @@
                 <p class="text-[10px] mt-1" style="color:var(--color-border-input)">Save a request to create one</p>
             </div>
 
-            {{-- Collections toolbar: Import button --}}
+            {{-- Collections toolbar: Add button (dropdown) --}}
             <div x-show="!collectionsLoading" class="flex items-center justify-between px-3 pt-2 pb-1">
                 <span class="text-[9px] uppercase tracking-widest font-semibold" style="color:var(--color-text-muted-7);">Collections</span>
-                <button @click="importCollection()"
-                        class="text-[10px] transition-colors"
-                        style="color:var(--color-text-muted-5);"
-                        onmouseover="this.style.color='var(--color-brand)'" onmouseout="this.style.color='var(--color-text-muted-5)'">
-                    + Import
-                </button>
+                <div class="relative" @click.outside="addCollectionMenuOpen = false">
+                    <button @click="addCollectionMenuOpen = !addCollectionMenuOpen"
+                            class="text-[10px] transition-colors"
+                            style="color:var(--color-text-muted-5);"
+                            onmouseover="this.style.color='var(--color-brand)'" onmouseout="this.style.color='var(--color-text-muted-5)'">
+                        + Add
+                    </button>
+                    <div x-show="addCollectionMenuOpen"
+                         x-cloak
+                         class="absolute right-0 top-full mt-1 w-40 rounded shadow-2xl z-50 py-1"
+                         style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                        <button @click="addCollectionMenuOpen = false; newCollectionModal = true; newCollectionName = ''"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                style="color:var(--color-text-primary)"
+                                onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                            </svg>
+                            New Collection
+                        </button>
+                        <button @click="addCollectionMenuOpen = false; importCollection()"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                style="color:var(--color-text-primary)"
+                                onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4 4m0 0l4-4m-4 4V4"/>
+                            </svg>
+                            Import
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {{-- Import notification toast --}}
@@ -278,5 +303,43 @@
            @change="handleImportFile($event.target.files)"
            accept=".json,application/json"
            class="hidden">
+
+    {{-- New Collection Modal --}}
+    <div x-show="newCollectionModal"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         style="background:rgba(0,0,0,0.6);"
+         @keydown.escape.window="newCollectionModal = false">
+        <div class="w-80 rounded-lg shadow-2xl p-5"
+             style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);"
+             @click.stop>
+            <h3 class="text-sm font-semibold mb-4" style="color:var(--color-text-input)">New Collection</h3>
+            <input x-ref="newCollectionNameInput"
+                   x-model="newCollectionName"
+                   @keydown.enter="createCollection()"
+                   type="text"
+                   placeholder="Collection name"
+                   class="w-full px-3 py-2 rounded text-sm outline-none"
+                   style="background:var(--color-bg-input); border:1px solid var(--color-border-input); color:var(--color-text-input);"
+                   x-init="$watch('newCollectionModal', v => { if (v) $nextTick(() => $refs.newCollectionNameInput.focus()) })">
+            <div x-show="newCollectionError" x-cloak class="mt-2 text-[11px]" style="color:var(--color-danger)" x-text="newCollectionError"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="newCollectionModal = false; newCollectionError = null"
+                        class="px-3 py-1.5 rounded text-xs transition-colors"
+                        style="color:var(--color-text-muted-4); background:transparent;"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    Cancel
+                </button>
+                <button @click="createCollection()"
+                        :disabled="newCollectionLoading || !newCollectionName.trim()"
+                        class="px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-50"
+                        style="background:var(--color-brand);"
+                        onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
+                    <span x-show="!newCollectionLoading">Create</span>
+                    <span x-show="newCollectionLoading">Creating…</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
 </aside>
