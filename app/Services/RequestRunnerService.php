@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Repositories\CollectionRepository;
 use App\Repositories\RequestRepository;
 use App\Services\EnvironmentService;
 use GuzzleHttp\Client;
@@ -14,6 +15,7 @@ class RequestRunnerService
     public function __construct(
         private RequestRepository $repo,
         private EnvironmentService $environmentService,
+        private CollectionRepository $collectionRepo,
     ) {}
 
     /**
@@ -38,11 +40,18 @@ class RequestRunnerService
         ?int $userId = null,
         ?int $requestId = null,
         ?int $environmentId = null,
+        ?int $collectionId = null,
     ): array {
-        // Resolve environment variables and substitute placeholders.
-        $variables = $userId !== null
+        // Collection variables are the base; env variables override them (env support coming in v2).
+        $collectionVars = $collectionId !== null
+            ? $this->collectionRepo->getVariablesMap($collectionId)
+            : [];
+
+        $envVars = $userId !== null
             ? $this->environmentService->getActiveVariables($userId)
             : [];
+
+        $variables = array_merge($collectionVars, $envVars);
 
         $url     = $this->environmentService->substitute($url, $variables);
         $headers = $this->substituteHeaderValues($headers, $variables);

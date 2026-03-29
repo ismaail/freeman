@@ -23,6 +23,7 @@ class RunnerController extends Controller
             userId:        auth()->id(),
             requestId:     $request->input('request_id'),
             environmentId: $request->input('environment_id'),
+            collectionId:  $request->input('collection_id'),
         );
 
         return response()->json($result);

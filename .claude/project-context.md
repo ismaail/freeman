@@ -69,6 +69,15 @@ _This file is auto-imported by CLAUDE.md. Keep it updated after every feature._
 | value | string | e.g. "https://api.example.com" |
 | enabled | boolean | Default true |
 
+### `collection_variables`
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| collection_id | FK → collections | |
+| key | string | e.g. "BASE_URL" |
+| value | string | e.g. "https://api.example.com" |
+| enabled | boolean | Default true |
+
 ### `request_logs` (Request History)
 | Column | Type | Notes |
 |---|---|---|
@@ -91,8 +100,8 @@ _This file is auto-imported by CLAUDE.md. Keep it updated after every feature._
 
 | Service | Location | Responsibility |
 |---|---|---|
-| `RequestRunnerService` | `app/Services/RequestRunnerService.php` | Executes outgoing HTTP calls via Guzzle, substitutes env variables, logs to `request_logs` |
-| `EnvironmentService` | `app/Services/EnvironmentService.php` | Resolves active environment, substitutes `{{variables}}` in URLs/headers/body |
+| `RequestRunnerService` | `app/Services/RequestRunnerService.php` | Executes outgoing HTTP calls via Guzzle, substitutes collection + env variables, logs to `request_logs` |
+| `EnvironmentService` | `app/Services/EnvironmentService.php` | Resolves active environment, substitutes `{{variables}}` in URLs/headers/body (env vars override collection vars) |
 | `CollectionExportService` | `app/Services/CollectionExportService.php` | Exports collection to Postman v2.1 JSON (GET /collections/{id}/export) |
 | `CollectionImportService` | `app/Services/CollectionImportService.php` | Imports Postman v2.1 JSON file, creates collection/folders/requests recursively (POST /collections/import) |
 
@@ -116,6 +125,8 @@ PATCH /collections/{id}             → update collection
 DELETE /collections/{id}            → delete collection
 GET  /collections/{id}/export       → download collection JSON
 POST /collections/import            → upload + import collection JSON
+GET  /collections/{id}/variables    → get collection variables
+PATCH /collections/{id}/variables   → sync collection variables
 GET  /environments                  → list environments (with variables)
 POST /environments                  → create environment
 PATCH /environments/{id}            → update environment name + sync variables
@@ -142,7 +153,8 @@ DELETE /admin/users/{id}            → delete user
 | Saved request CRUD (backend) | ✅ Done |
 | Request builder UI | ✅ Done |
 | Request execution (Guzzle proxy) | ✅ Done |
-| Environments + variables | ✅ Done |
+| Collection variables (`{{VAR}}` substitution) | ✅ Done |
+| Environments + variables | ⏳ Not started (v2) |
 | Request history | ⏳ Not started |
 | Import/Export collections | ✅ Done |
 | Auth helpers (Bearer/Basic/API Key) | ✅ Done (UI in Auth tab) |

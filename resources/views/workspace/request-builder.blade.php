@@ -35,7 +35,9 @@
          CSS-grid stacking: backdrop + real input share the same grid cell
          so they overlap perfectly without absolute positioning issues.  --}}
     <div class="flex-1 rounded overflow-hidden url-field-wrap"
-         :style="urlFocused ? 'border-color:var(--color-brand-tint-focus)' : 'border-color:var(--color-border-input)'">
+         :style="urlFocused ? 'border-color:var(--color-brand-tint-focus)' : 'border-color:var(--color-border-input)'"
+         @mousemove="onVarHover($event)"
+         @mouseleave="varTooltip.show = false">
         {{-- Backdrop (aria-hidden): renders highlighted copy of the URL --}}
         <div x-ref="urlBackdrop"
              aria-hidden="true"
@@ -45,9 +47,11 @@
         <input x-model="currentRequest.url"
                x-ref="urlInput"
                @keydown.enter="sendRequest()"
+               @keydown.escape="varAc.show = false"
                @scroll="$refs.urlBackdrop.scrollLeft = $el.scrollLeft"
                @focus="urlFocused = true"
-               @blur="urlFocused = false"
+               @blur="varAc.show = false; urlFocused = false"
+               @input="checkVarAc($event)"
                type="text"
                placeholder="https://api.example.com/endpoint"
                class="url-field-real url-field-input"/>

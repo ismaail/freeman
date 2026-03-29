@@ -52,10 +52,15 @@
                                        onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
                             </td>
                             <td class="py-0.5">
-                                <input x-model="p.value" type="text" placeholder="Value"
-                                       class="kv-input w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
-                                       style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
-                                       onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
+                                <div class="var-field-wrap w-full kv-input"
+                                     @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                                    <div class="vf-back" x-html="highlightVars(p.value)"></div>
+                                    <input x-model="p.value" type="text" placeholder="Value"
+                                           @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                           class="vf-real focus:outline-none"
+                                           onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                                           onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
+                                </div>
                             </td>
                             <td class="pl-1.5 py-0.5 w-5">
                                 <button @click="removeParam(i)"
@@ -107,10 +112,15 @@
                                        onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
                             </td>
                             <td class="py-0.5">
-                                <input x-model="h.value" type="text" placeholder="Value"
-                                       class="kv-input w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
-                                       style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
-                                       onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
+                                <div class="var-field-wrap w-full kv-input"
+                                     @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                                    <div class="vf-back" x-html="highlightVars(h.value)"></div>
+                                    <input x-model="h.value" type="text" placeholder="Value"
+                                           @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                           class="vf-real focus:outline-none"
+                                           onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                                           onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
+                                </div>
                             </td>
                             <td class="pl-1.5 py-0.5 w-5">
                                 <button @click="removeHeader(i)"
@@ -152,12 +162,18 @@
 
             {{-- Raw textarea --}}
             <div x-show="currentRequest.body_type === 'raw'">
-                <textarea x-model="currentRequest.body"
-                          rows="6"
-                          placeholder='{"key": "value"}'
-                          class="w-full rounded px-3 py-2.5 text-xs font-mono focus:outline-none resize-none response-body"
-                          style="background:var(--color-bg-body-input); border:1px solid var(--color-border-subtle); color:var(--color-text-input); line-height:1.6;"
-                          onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"></textarea>
+                <div class="var-field-wrap vf-textarea w-full"
+                     style="background:var(--color-bg-body-input);"
+                     @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                    <div class="vf-back response-body" x-html="highlightVars(currentRequest.body ?? '')"></div>
+                    <textarea x-model="currentRequest.body"
+                              placeholder='{"key": "value"}'
+                              @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                              class="vf-real focus:outline-none"
+                              onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                              onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"
+                              @scroll="$el.closest('.var-field-wrap').querySelector('.vf-back').scrollTop = $el.scrollTop"></textarea>
+                </div>
             </div>
 
             {{-- Form key-value body --}}
@@ -185,10 +201,15 @@
                                            onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
                                 </td>
                                 <td class="py-0.5">
-                                    <input x-model="r.value" type="text" placeholder="Value"
-                                           class="w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
-                                           style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
-                                           onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
+                                    <div class="var-field-wrap w-full"
+                                         @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                                        <div class="vf-back" x-html="highlightVars(r.value)"></div>
+                                        <input x-model="r.value" type="text" placeholder="Value"
+                                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                               class="vf-real focus:outline-none"
+                                               onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                                               onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
+                                    </div>
                                 </td>
                                 <td class="pl-1.5 py-0.5 w-5">
                                     <button @click="removeFormRow(i)"
@@ -239,11 +260,16 @@
             <div x-show="currentRequest.auth_type === 'bearer'" class="space-y-3">
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Token</label>
-                    <input x-model="currentRequest.auth_data.token"
-                           type="text" placeholder="Enter bearer token"
-                           class="w-full rounded px-3 py-2 text-xs font-mono focus:outline-none"
-                           style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
-                           onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
+                    <div class="var-field-wrap vf-md w-full"
+                         @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                        <div class="vf-back" x-html="highlightVars(currentRequest.auth_data.token ?? '')"></div>
+                        <input x-model="currentRequest.auth_data.token"
+                               type="text" placeholder="Enter bearer token"
+                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                               class="vf-real focus:outline-none"
+                               onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                               onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
+                    </div>
                 </div>
             </div>
 
@@ -279,11 +305,16 @@
                 </div>
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Value</label>
-                    <input x-model="currentRequest.auth_data.value"
-                           type="text" placeholder="API key value"
-                           class="w-full rounded px-3 py-2 text-xs font-mono focus:outline-none"
-                           style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
-                           onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
+                    <div class="var-field-wrap vf-md w-full"
+                         @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                        <div class="vf-back" x-html="highlightVars(currentRequest.auth_data.value ?? '')"></div>
+                        <input x-model="currentRequest.auth_data.value"
+                               type="text" placeholder="API key value"
+                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                               class="vf-real focus:outline-none"
+                               onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                               onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Add To</label>

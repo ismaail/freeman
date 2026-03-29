@@ -37,6 +37,8 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::post('/collections', [CollectionController::class, 'store'])->name('collections.store');
     Route::post('/collections/import', [CollectionController::class, 'import'])->name('collections.import');
     Route::get('/collections/{collection}/export', [CollectionController::class, 'export'])->name('collections.export');
+    Route::get('/collections/{collection}/variables', [CollectionController::class, 'showVariables'])->name('collections.variables.show');
+    Route::patch('/collections/{collection}/variables', [CollectionController::class, 'updateVariables'])->name('collections.variables.update');
     Route::patch('/collections/{collection}', [CollectionController::class, 'update'])->name('collections.update');
     Route::delete('/collections/{collection}', [CollectionController::class, 'destroy'])->name('collections.destroy');
 

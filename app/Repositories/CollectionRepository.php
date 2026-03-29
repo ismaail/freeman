@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Collection;
 use App\Models\CollectionFolder;
+use App\Models\CollectionVariable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 class CollectionRepository
@@ -116,5 +117,47 @@ class CollectionRepository
     public function deleteFolder(CollectionFolder $folder): void
     {
         $folder->delete();
+    }
+
+    // --- Variable methods ---
+
+    public function getVariables(Collection $collection): EloquentCollection
+    {
+        return $collection->variables()->get();
+    }
+
+    public function syncVariables(Collection $collection, array $variables): EloquentCollection
+    {
+        $collection->variables()->delete();
+
+        foreach ($variables as $var) {
+            if (isset($var['key']) && $var['key'] !== '') {
+                CollectionVariable::create([
+                    'collection_id' => $collection->id,
+                    'key'           => $var['key'],
+                    'value'         => $var['value'] ?? '',
+                    'enabled'       => $var['enabled'] ?? true,
+                ]);
+            }
+        }
+
+        return $collection->variables()->get();
+    }
+
+    /**
+     * Returns a flat key → value map of enabled variables for a collection.
+     */
+    public function getVariablesMap(int $collectionId): array
+    {
+        $vars = [];
+
+        CollectionVariable::where('collection_id', $collectionId)
+            ->where('enabled', true)
+            ->get()
+            ->each(function (CollectionVariable $v) use (&$vars): void {
+                $vars[$v->key] = $v->value;
+            });
+
+        return $vars;
     }
 }

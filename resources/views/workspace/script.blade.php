@@ -14,6 +14,24 @@ function workspace() {
         environments: [],
         collectionsLoading: true,
 
+        // Resolved variables for the current request's collection (flat key→value)
+        currentCollectionVars: {},
+
+        // Floating tooltip shown when hovering a {variable} in the URL bar
+        varTooltip: { show: false, text: '', x: 0, y: 0, isUndef: false },
+
+        // Autocomplete dropdown for {variable} in any input
+        varAc: { show: false, suggestions: [], x: 0, y: 0, anchor: null },
+
+        // Collection variables modal
+        collectionVarsModal: {
+            open: false,
+            collectionId: null,
+            collectionName: '',
+            variables: [],
+            saving: false,
+        },
+
         // Sidebar state
         expandedCollections: {},
         expandedFolders: {},
@@ -106,6 +124,7 @@ function workspace() {
 
         blankRequest() {
             return {
+                collection_id: null,
                 name: 'New Request',
                 method: 'GET',
                 url: '',
@@ -120,11 +139,12 @@ function workspace() {
         },
 
         newRequest() {
-            this.activeRequestId = null;
-            this.currentRequest  = this.blankRequest();
-            this.response        = null;
-            this.requestTab      = 'params';
-            this.requestOpen     = true;
+            this.activeRequestId     = null;
+            this.currentRequest      = this.blankRequest();
+            this.currentCollectionVars = {};
+            this.response            = null;
+            this.requestTab          = 'params';
+            this.requestOpen         = true;
         },
 
         async openRequest(requestId) {
@@ -138,7 +158,14 @@ function workspace() {
                 const d    = json.data;
                 const ad   = d.auth_data || {};
 
+                if (d.collection_id) {
+                    this.loadCurrentCollectionVars(d.collection_id);
+                } else {
+                    this.currentCollectionVars = {};
+                }
+
                 this.currentRequest = {
+                    collection_id: d.collection_id || null,
                     name:      d.name      || 'Untitled',
                     method:    d.method    || 'GET',
                     url:       d.url       || '',
@@ -187,14 +214,15 @@ function workspace() {
             }
 
             const payload = {
-                method:     this.currentRequest.method,
+                method:        this.currentRequest.method,
                 url,
-                headers:    this.currentRequest.headers.filter(h => h.key.trim()),
-                body_type:  this.currentRequest.body_type,
+                headers:       this.currentRequest.headers.filter(h => h.key.trim()),
+                body_type:     this.currentRequest.body_type,
                 body,
-                auth_type:  this.currentRequest.auth_type,
-                auth_data:  this.currentRequest.auth_data,
-                request_id: this.activeRequestId,
+                auth_type:     this.currentRequest.auth_type,
+                auth_data:     this.currentRequest.auth_data,
+                request_id:    this.activeRequestId,
+                collection_id: this.currentRequest.collection_id,
             };
 
             try {
@@ -349,6 +377,171 @@ function workspace() {
             }
         },
 
+        // ---- Collection variable loading ----
+
+        async loadCurrentCollectionVars(collectionId) {
+            try {
+                const res  = await fetch(`/collections/${collectionId}/variables`, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const json = await res.json();
+                const map  = {};
+                (json.data || []).forEach(v => { if (v.enabled && v.key) map[v.key] = v.value; });
+                this.currentCollectionVars = map;
+            } catch (e) {
+                this.currentCollectionVars = {};
+            }
+        },
+
+        // ---- URL variable hover tooltip ----
+        // Uses elementFromPoint trick: briefly disable pointer-events on the real
+        // input so document.elementFromPoint() can reach the backdrop marks.
+
+        onVarHover(event) {
+            // Works for URL bar (.url-field-wrap) and generic wrappers (.var-field-wrap).
+            const wrap  = event.currentTarget;
+            const input = wrap.querySelector('input, textarea');
+            if (!input) return;
+
+            // Hide the real input from hit-testing so elementFromPoint can reach
+            // the <mark> elements in the backdrop behind it.
+            input.style.pointerEvents = 'none';
+            const el = document.elementFromPoint(event.clientX, event.clientY);
+            input.style.pointerEvents = '';
+
+            if (el && el.classList && el.classList.contains('url-var')) {
+                const isUndef = el.classList.contains('url-var-err');
+                const rect    = el.getBoundingClientRect();
+                this.varTooltip = {
+                    show:    true,
+                    text:    isUndef ? '' : (el.dataset.val ?? ''),
+                    name:    el.dataset.name ?? '',
+                    x:       rect.left + rect.width / 2,
+                    y:       rect.top,
+                    isUndef,
+                };
+            } else {
+                this.varTooltip.show = false;
+            }
+        },
+
+        varLabel(name) {
+            return '{' + '{' + name + '}' + '}';
+        },
+
+        highlightVars(text) {
+            return this.highlightUrl(text);
+        },
+
+        // ---- variable autocomplete ----
+
+        checkVarAc(event) {
+            const el = event.target;
+            if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+            if (!Object.keys(this.currentCollectionVars).length) { this.varAc.show = false; return; }
+
+            const val    = el.value;
+            const pos    = el.selectionStart ?? val.length;
+            const before = val.slice(0, pos);
+            const openAt = before.lastIndexOf('{' + '{');
+
+            if (openAt === -1 || before.slice(openAt + 2).includes('}' + '}')) {
+                this.varAc.show = false;
+                return;
+            }
+
+            const query       = before.slice(openAt + 2).toLowerCase();
+            const suggestions = Object.keys(this.currentCollectionVars)
+                .filter(k => k.toLowerCase().includes(query));
+
+            if (!suggestions.length) { this.varAc.show = false; return; }
+
+            const rect    = el.getBoundingClientRect();
+            this.varAc.x  = rect.left;
+            this.varAc.y  = rect.bottom + 4;
+            this.varAc.suggestions = suggestions;
+            this.varAc.anchor      = el;
+            this.varAc.show        = true;
+        },
+
+        selectVarAc(name) {
+            const el = this.varAc.anchor;
+            if (!el) return;
+
+            const val    = el.value;
+            const pos    = el.selectionStart ?? val.length;
+            const before = val.slice(0, pos);
+            const openAt = before.lastIndexOf('{' + '{');
+            const newVal = val.slice(0, openAt) + '{' + '{' + name + '}' + '}' + val.slice(pos);
+            const newPos = openAt + name.length + 4; // open + name + close
+
+            el.value = newVal;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            setTimeout(() => { el.focus(); el.setSelectionRange(newPos, newPos); }, 0);
+            this.varAc.show = false;
+        },
+
+        // ---- Collection variables modal ----
+
+        async openCollectionVariables(collectionId, collectionName) {
+            this.collectionVarsModal.collectionId   = collectionId;
+            this.collectionVarsModal.collectionName = collectionName;
+            this.collectionVarsModal.saving         = false;
+            this.collectionVarsModal.variables      = [];
+            this.collectionVarsModal.open           = true;
+
+            try {
+                const res  = await fetch(`/collections/${collectionId}/variables`, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const json = await res.json();
+                this.collectionVarsModal.variables = (json.data && json.data.length)
+                    ? json.data
+                    : [{ key: '', value: '', enabled: true }];
+            } catch (e) {
+                console.error('openCollectionVariables:', e);
+                this.collectionVarsModal.variables = [{ key: '', value: '', enabled: true }];
+            }
+        },
+
+        addVariableRow() {
+            this.collectionVarsModal.variables.push({ key: '', value: '', enabled: true });
+        },
+
+        removeVariableRow(i) {
+            this.collectionVarsModal.variables.splice(i, 1);
+            if (!this.collectionVarsModal.variables.length) {
+                this.collectionVarsModal.variables.push({ key: '', value: '', enabled: true });
+            }
+        },
+
+        async saveCollectionVariables() {
+            this.collectionVarsModal.saving = true;
+            try {
+                await fetch(`/collections/${this.collectionVarsModal.collectionId}/variables`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type':     'application/json',
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        variables: this.collectionVarsModal.variables.filter(v => v.key.trim()),
+                    }),
+                });
+                // Reload vars if the saved collection is the active one
+                if (this.currentRequest.collection_id === this.collectionVarsModal.collectionId) {
+                    await this.loadCurrentCollectionVars(this.collectionVarsModal.collectionId);
+                }
+                this.collectionVarsModal.open = false;
+            } catch (e) {
+                console.error('saveCollectionVariables:', e);
+            } finally {
+                this.collectionVarsModal.saving = false;
+            }
+        },
+
         // ---- Key-value row helpers ----
 
         addParam()      { this.currentRequest.params.push({ key: '', value: '', enabled: true }); },
@@ -389,10 +582,14 @@ function workspace() {
 
         highlightUrl(url) {
             if (!url) return '';
-            return this.escHtml(url).replace(
-                /\{\{([^}]*)\}\}/g,
-                '<mark style="background:var(--color-brand-tint-url-bg);color:var(--color-brand-tint-url-text);border-radius:2px;padding:0 1px;">@{{$1}}</mark>'
-            );
+            const vars = this.currentCollectionVars;
+            return this.escHtml(url).replace(/\{\{([^}]*)\}\}/g, (match, key) => {
+                const k = key.trim();
+                if (k in vars) {
+                    return `<mark class="url-var url-var-ok" data-name="${this.escHtml(k)}" data-val="${this.escHtml(vars[k])}">@{{${this.escHtml(key)}}}</mark>`;
+                }
+                return `<mark class="url-var url-var-err" data-name="${this.escHtml(k)}">@{{${this.escHtml(key)}}}</mark>`;
+            });
         },
 
         // ---- Response body rendering ----

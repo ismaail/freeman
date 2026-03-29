@@ -55,3 +55,15 @@ _This file is auto-imported by CLAUDE.md. Log every significant architectural de
 ## DD-009 — `{{variable}}` syntax for environment variables
 **Decision:** Use double-curly `{{VARIABLE_NAME}}` syntax in URLs, headers, and body — matching Postman's syntax.
 **Reason:** Familiar to Postman users. Makes imported Postman collections work without modification.
+
+---
+
+## DD-010 — Collection variables instead of global environments for v1
+**Decision:** Variables are scoped to a collection (`collection_variables` table), not to a global environment. Environment switching is deferred to v2.
+**Reason:** For a small-team self-hosted tool, per-collection variables cover the majority of use cases (base URL, auth tokens per service) without the added complexity of environment switching UI. The substitution layer already supports priority merging (`collection vars < env vars`) so environments can be layered on top in v2 with no breaking changes.
+
+---
+
+## DD-011 — Variable priority: collection vars < env vars
+**Decision:** When both a collection variable and an environment variable share the same key, the environment variable wins (`array_merge($collectionVars, $envVars)`).
+**Reason:** Matches Postman's precedence model. Allows environment variables to override collection defaults (e.g. collection sets `BASE_URL=localhost`, environment overrides to `BASE_URL=https://api.prod.com`). Implemented now even though env vars are v2, so the merge logic never needs to change.

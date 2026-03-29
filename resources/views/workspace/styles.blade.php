@@ -42,6 +42,62 @@
     .url-field-input { cursor: text; }
     .url-field-input::placeholder { color: var(--color-border-input); }
 
+    /* ---------- Generic variable-highlight field wrapper ---------- */
+    /* Mirrors the URL bar technique: CSS-grid stacking of backdrop + real input */
+    .var-field-wrap {
+        display: grid;
+        border-radius: 4px;
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-subtle);
+        overflow: hidden;
+        transition: border-color .15s;
+    }
+    .vf-back, .vf-real {
+        grid-area: 1/1;
+        padding: 6px 10px;       /* px-2.5 py-1.5 */
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        white-space: pre;
+        overflow: hidden;
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        letter-spacing: 0;
+    }
+    .vf-back {
+        color: var(--color-text-input);
+        pointer-events: none;
+        user-select: none;
+    }
+    .vf-real {
+        background: transparent;
+        color: transparent;
+        caret-color: var(--color-text-input);
+        border: none;
+        outline: none;
+    }
+    /* Modifier: px-3 py-2 padding (auth / wider inputs) */
+    .var-field-wrap.vf-md .vf-back,
+    .var-field-wrap.vf-md .vf-real { padding: 8px 12px; }
+    /* Modifier: textarea (multi-line, px-3 py-2.5, line-height 1.6) */
+    .var-field-wrap.vf-textarea { min-height: 135px; }
+    .var-field-wrap.vf-textarea .vf-back,
+    .var-field-wrap.vf-textarea .vf-real {
+        padding: 10px 12px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        overflow-y: auto;
+        resize: none;
+        height: 135px;
+    }
+
+    /* ---------- URL variable marks ---------- */
+    .url-var     { border-radius: 2px; padding: 0 2px; margin: 0 -2px; pointer-events: auto; cursor: default; }
+    .url-var-ok  { background: var(--color-brand-tint-url-bg); color: var(--color-brand-tint-url-text); }
+    .url-var-err { background: rgba(239,68,68,0.18); color: #f87171; }
+
     /* ---------- Response body syntax tokens ---------- */
     .json-key    { color: var(--color-syntax-key); }
     .json-str    { color: var(--color-syntax-str); }

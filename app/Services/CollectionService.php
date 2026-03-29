@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Collection;
 use App\Models\CollectionFolder;
+use App\Models\CollectionVariable;
 use App\Repositories\CollectionRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
@@ -60,5 +61,21 @@ class CollectionService
         $this->repo->findForUser($collectionId, $userId);
         $folder = $this->repo->findFolder($folderId, $collectionId);
         $this->repo->deleteFolder($folder);
+    }
+
+    // --- Variable methods ---
+
+    public function getVariables(int $collectionId, int $userId): EloquentCollection
+    {
+        $collection = $this->repo->findForUser($collectionId, $userId);
+
+        return $this->repo->getVariables($collection);
+    }
+
+    public function syncVariables(int $collectionId, int $userId, array $variables): EloquentCollection
+    {
+        $collection = $this->repo->findForUser($collectionId, $userId);
+
+        return $this->repo->syncVariables($collection, $variables);
     }
 }

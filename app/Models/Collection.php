@@ -28,4 +28,9 @@ class Collection extends Model
     {
         return $this->hasMany(Request::class);
     }
+
+    public function variables(): HasMany
+    {
+        return $this->hasMany(CollectionVariable::class);
+    }
 }

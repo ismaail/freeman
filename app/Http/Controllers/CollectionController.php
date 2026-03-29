@@ -49,6 +49,37 @@ class CollectionController extends Controller
     }
 
     // -------------------------------------------------------------------------
+    // Collection variables
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /collections/{id}/variables
+     */
+    public function showVariables(int $collection): JsonResponse
+    {
+        $variables = $this->service->getVariables($collection, auth()->id());
+
+        return response()->json(['data' => $variables]);
+    }
+
+    /**
+     * PATCH /collections/{id}/variables
+     */
+    public function updateVariables(Request $request, int $collection): JsonResponse
+    {
+        $request->validate([
+            'variables'           => ['present', 'array'],
+            'variables.*.key'     => ['required', 'string', 'max:255'],
+            'variables.*.value'   => ['nullable', 'string'],
+            'variables.*.enabled' => ['boolean'],
+        ]);
+
+        $variables = $this->service->syncVariables($collection, auth()->id(), $request->input('variables', []));
+
+        return response()->json(['data' => $variables]);
+    }
+
+    // -------------------------------------------------------------------------
     // Export
     // -------------------------------------------------------------------------
 
