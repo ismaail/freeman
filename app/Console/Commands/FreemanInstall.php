@@ -27,6 +27,9 @@ class FreemanInstall extends Command
         $this->line('  ─────────────────────────────────────────────────');
         $this->info('');
 
+        // Step 0: System requirements
+        $this->stepRequirements();
+
         // Step 1: .env file
         $this->stepEnv();
 
@@ -55,9 +58,41 @@ class FreemanInstall extends Command
         return self::SUCCESS;
     }
 
+    private function stepRequirements(): void
+    {
+        $this->line('  [1/6] Checking requirements');
+
+        $missing = [];
+
+        if (! extension_loaded('pdo_sqlite')) {
+            $missing[] = 'pdo_sqlite';
+        }
+
+        if (! extension_loaded('openssl')) {
+            $missing[] = 'openssl';
+        }
+
+        if (empty($missing)) {
+            $this->line('        All requirements met.');
+            return;
+        }
+
+        $this->error('        Missing PHP extensions: ' . implode(', ', $missing));
+        $this->info('');
+        $this->line('        Install them and re-run:');
+        $this->line('');
+        $this->line('          Ubuntu/Debian:  sudo apt install php-sqlite3 php-curl');
+        $this->line('          RHEL/Fedora:    sudo dnf install php-pdo php-sqlite3');
+        $this->line('          macOS (Brew):   already included in php formula');
+        $this->line('          Windows:        enable extension=pdo_sqlite in php.ini');
+        $this->info('');
+
+        exit(self::FAILURE);
+    }
+
     private function stepEnv(): void
     {
-        $this->line('  [1/5] Environment file');
+        $this->line('  [2/6] Environment file');
 
         if (file_exists(base_path('.env'))) {
             $this->line('        .env already exists — skipping copy.');
@@ -75,7 +110,7 @@ class FreemanInstall extends Command
 
     private function stepAppKey(): void
     {
-        $this->line('  [2/5] Application key');
+        $this->line('  [3/6] Application key');
 
         $key = config('app.key');
 
@@ -89,7 +124,7 @@ class FreemanInstall extends Command
 
     private function stepDatabase(): void
     {
-        $this->line('  [3/5] SQLite database');
+        $this->line('  [4/6] SQLite database');
 
         $dbPath = database_path('database.sqlite');
 
@@ -104,14 +139,14 @@ class FreemanInstall extends Command
 
     private function stepMigrations(): void
     {
-        $this->line('  [4/5] Running migrations');
+        $this->line('  [5/6] Running migrations');
 
         $this->call('migrate', ['--force' => true]);
     }
 
     private function stepSuperAdmin(): void
     {
-        $this->line('  [5/5] Super admin account');
+        $this->line('  [6/6] Super admin account');
         $this->info('');
 
         // Check if a super admin already exists
