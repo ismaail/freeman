@@ -6,6 +6,39 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+// If vendor/ is missing, run `composer install` before bootstrapping Laravel.
+if (! file_exists(__DIR__ . '/vendor/autoload.php')) {
+    fwrite(STDOUT, "\n  \033[32mFreeman\033[0m — installing dependencies via Composer...\n\n");
+
+    $composer = null;
+    foreach (['composer', 'composer.phar'] as $candidate) {
+        exec($candidate . ' --version 2>&1', $out, $code);
+        if ($code === 0) {
+            $composer = $candidate;
+            break;
+        }
+    }
+
+    if ($composer === null) {
+        fwrite(STDERR, "  \033[31mError: Composer not found. Install it from https://getcomposer.org\033[0m\n\n");
+        exit(1);
+    }
+
+    passthru($composer . ' install --no-interaction --prefer-dist', $exitCode);
+
+    if ($exitCode !== 0) {
+        fwrite(STDERR, "\n  \033[31mComposer install failed. Fix the errors above and try again.\033[0m\n\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "\n");
+
+    // Re-exec this script now that vendor/ exists, preserving all arguments.
+    $args = array_map('escapeshellarg', $argv);
+    passthru(escapeshellarg(PHP_BINARY) . ' ' . implode(' ', $args), $exitCode);
+    exit($exitCode);
+}
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 
