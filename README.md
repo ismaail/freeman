@@ -2,7 +2,7 @@
 
 **Freeman** is an open-source, self-hosted, web-based REST API client — a lightweight [Postman](https://www.postman.com/) alternative you can run on your own server.
 
-No desktop install required. No data leaves your network. Your team accesses it from any browser.
+No desktop install. No data leaves your network. Your team accesses it from any browser.
 
 ![Freeman screenshot](docs/screenshot.png)
 
@@ -10,25 +10,43 @@ No desktop install required. No data leaves your network. Your team accesses it 
 
 ## Features
 
-- **Organised collections** — group requests into folders, just like Postman
-- **Environment variables** — define `{{BASE_URL}}` once, reuse everywhere
-- **Request history** — every executed request is logged automatically
-- **Import / Export** — full Postman Collection v2.1 compatibility
-- **Auth helpers** — Bearer token, Basic auth, API Key support built-in
-- **Team accounts** — the super admin creates user accounts; no self-registration
-- **CORS-free** — all requests are proxied server-side via Guzzle
+- **Collections & folders** — organise requests just like Postman
+- **Collection variables** — define `{{BASE_URL}}` once, reuse everywhere across the collection
+- **Import / Export** — full Postman Collection v2.1 compatibility; migrate in seconds
+- **Auth helpers** — Bearer token, Basic auth, and API Key support built in
+- **Team accounts** — super admin creates accounts; no self-registration
+- **CORS-free** — all requests are proxied server-side via Guzzle; no browser restrictions
+- **Rate limiting** — 60 requests/min per user on the run endpoint
+- **Self-contained** — SQLite database, no external services required
 
 ---
 
 ## Requirements
 
-| Requirement | Minimum version |
+| Requirement | Minimum |
 |---|---|
-| PHP | 8.2 |
+| PHP | 8.2+ |
 | Composer | 2.x |
-| SQLite extension | bundled with PHP |
+| PHP extension: `pdo_sqlite` | required |
+| PHP extension: `openssl` | required |
 
-> No Node.js, no npm, no build step needed. Tailwind and Alpine.js are loaded from CDN.
+> No Node.js, no npm, no build step. Tailwind CSS and Alpine.js are loaded from CDN.
+
+### Installing missing PHP extensions
+
+**Ubuntu / Debian**
+```bash
+sudo apt install php-sqlite3
+```
+
+**RHEL / Fedora**
+```bash
+sudo dnf install php-pdo php-sqlite3
+```
+
+**Windows** — enable `extension=pdo_sqlite` in your `php.ini`.
+
+**macOS (Homebrew)** — extensions are bundled with the `php` formula.
 
 ---
 
@@ -41,26 +59,23 @@ git clone https://github.com/your-org/freeman.git
 cd freeman
 ```
 
-### 2. Install PHP dependencies
-
-```bash
-composer install --no-dev --optimize-autoloader
-```
-
-### 3. Run the install wizard
+### 2. Run the install wizard
 
 ```bash
 php artisan freeman:install
 ```
 
-The wizard will:
-- Copy `.env.example` to `.env` (if `.env` doesn't already exist)
-- Generate a secure `APP_KEY`
-- Create the SQLite database file
-- Run all database migrations
-- Prompt you to create the super admin username and password
+That's it. The wizard will automatically:
 
-### 4. Set your app URL
+1. Install PHP dependencies via Composer (if not already installed)
+2. Check all PHP extension requirements
+3. Copy `.env.example` → `.env`
+4. Generate a secure `APP_KEY`
+5. Create the SQLite database file
+6. Run all database migrations
+7. Prompt you to create your super admin account
+
+### 3. Set your app URL
 
 Open `.env` and update:
 
@@ -68,17 +83,22 @@ Open `.env` and update:
 APP_URL=https://your-domain.com
 ```
 
-### 5. Start the server
+### 4. Start the server
 
-**Development (built-in PHP server):**
-
+**Development**
 ```bash
 php artisan serve
 ```
+Then open [http://localhost:8000](http://localhost:8000) in your browser.
 
 **Production (recommended: nginx + php-fpm)**
 
-Point your web server's document root at the `public/` directory. Ensure `APP_ENV=production` and `APP_DEBUG=false` in `.env`.
+Point your web server's document root at the `public/` directory and set the following in `.env`:
+
+```ini
+APP_ENV=production
+APP_DEBUG=false
+```
 
 ---
 
@@ -101,18 +121,51 @@ All configuration lives in `.env`. Key settings:
 | Key | Description | Default |
 |---|---|---|
 | `APP_NAME` | Displayed in the browser tab | `Freeman` |
-| `APP_URL` | Full URL where Freeman is hosted | `http://localhost:8000` |
-| `APP_ENV` | `production` for live deployments | `production` |
-| `APP_DEBUG` | Set to `false` in production | `false` |
+| `APP_URL` | Full public URL where Freeman is hosted | `http://localhost:8000` |
+| `APP_ENV` | Set to `production` for live deployments | `production` |
+| `APP_DEBUG` | Always `false` in production | `false` |
 | `SESSION_LIFETIME` | Session timeout in minutes | `120` |
 
 ---
 
-## Creating users
+## User management
 
-Only the super admin can create user accounts. Log in with your super admin credentials and navigate to **Admin → Users**.
+Only the super admin can create user accounts — there is no self-registration. Log in with your super admin credentials and go to **Admin → Users**.
 
 New users are prompted to change their password on first login.
+
+---
+
+## Collection variables
+
+Use `{{VARIABLE_NAME}}` syntax in any URL, header, or request body. Variables are defined per-collection under **Variables** in the collection settings panel and are substituted at request time.
+
+---
+
+## Import & Export
+
+Freeman uses the **Postman Collection v2.1** format for both import and export, making it straightforward to migrate existing Postman collections without any manual work.
+
+- **Export** — open a collection and click **Export**
+- **Import** — click **Import** in the sidebar and upload a `.json` file
+
+---
+
+## Roadmap
+
+| Feature | Status |
+|---|---|
+| Collections, folders, saved requests | ✅ Done |
+| Request builder (headers, body, auth) | ✅ Done |
+| Collection variables (`{{VAR}}`) | ✅ Done |
+| Import / Export (Postman v2.1) | ✅ Done |
+| Auth helpers (Bearer / Basic / API Key) | ✅ Done |
+| Rate limiting on request execution | ✅ Done |
+| `freeman:install` wizard | ✅ Done |
+| Environments & environment switching | 🔜 v2 |
+| Request history log | 🔜 v2 |
+| Pre-request & test scripts | 🔜 v2 |
+| Sharing collections between users | 🔜 v2 |
 
 ---
 
