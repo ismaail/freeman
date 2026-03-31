@@ -159,12 +159,14 @@ class FreemanInstall extends Command
         $this->info('');
 
         $username = $this->askUsername();
+        $email    = $this->askEmail();
         $password = $this->askPassword();
 
         User::create([
-            'username'            => $username,
-            'password'            => Hash::make($password),
-            'is_super_admin'      => true,
+            'username'             => $username,
+            'email'                => $email,
+            'password'             => Hash::make($password),
+            'is_super_admin'       => true,
             'must_change_password' => false,
         ]);
 
@@ -188,6 +190,30 @@ class FreemanInstall extends Command
             }
 
             return $username;
+        } while (true);
+    }
+
+    private function askEmail(): string
+    {
+        do {
+            $email = $this->ask('        Email (used for password reset)');
+
+            if (empty($email)) {
+                $this->warn('        Email cannot be empty.');
+                continue;
+            }
+
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $this->warn('        Please enter a valid email address.');
+                continue;
+            }
+
+            if (User::where('email', $email)->exists()) {
+                $this->warn("        Email '{$email}' is already in use.");
+                continue;
+            }
+
+            return $email;
         } while (true);
     }
 

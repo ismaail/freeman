@@ -42,6 +42,13 @@
              style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);">
             <h2 class="text-lg font-semibold mb-6" style="color: var(--color-text-primary);">Sign in to your account</h2>
 
+            @if (session('status'))
+                <div class="mb-4 px-4 py-3 rounded-lg text-sm"
+                     style="background: var(--color-success-tint-bg); color: var(--color-success); border: 1px solid var(--color-success-tint-border);">
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('login.attempt') }}" x-data="{ loading: false }" @submit="loading = true">
                 @csrf
 
@@ -79,12 +86,21 @@
                         >
                     </div>
 
-                    <div class="flex items-center">
-                        <input type="checkbox" id="remember" name="remember"
-                               class="h-4 w-4 rounded"
-                               style="accent-color: var(--color-brand);">
-                        <label for="remember" class="ml-2 text-sm"
-                               style="color: var(--color-text-muted-2);">Remember me</label>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="remember" name="remember"
+                                   class="h-4 w-4 rounded"
+                                   style="accent-color: var(--color-brand);">
+                            <label for="remember" class="ml-2 text-sm"
+                                   style="color: var(--color-text-muted-2);">Remember me</label>
+                        </div>
+                        <a href="{{ route('password.request') }}"
+                           class="text-sm"
+                           style="color: var(--color-brand);"
+                           onmouseover="this.style.color='var(--color-brand-hover)'"
+                           onmouseout="this.style.color='var(--color-brand)'">
+                            Forgot password?
+                        </a>
                     </div>
                 </div>
 

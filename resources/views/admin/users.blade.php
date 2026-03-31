@@ -106,6 +106,24 @@
                     </div>
 
                     <div>
+                        <label for="email" class="block text-sm font-medium mb-1"
+                               style="color: var(--color-text-muted-1);">Email address</label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value="{{ old('email') }}"
+                            required
+                            autocomplete="off"
+                            class="form-input w-full px-3 py-2 rounded-lg text-sm @error('email') input-error @enderror"
+                            placeholder="jane@example.com"
+                        >
+                        @error('email')
+                            <p class="mt-1 text-xs" style="color: var(--color-danger-light);">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="col-span-2">
                         <label for="password" class="block text-sm font-medium mb-1"
                                style="color: var(--color-text-muted-1);">Temporary password</label>
                         <input
@@ -162,6 +180,8 @@
                             <th class="text-left px-6 py-3 font-medium text-xs uppercase tracking-wide"
                                 style="color: var(--color-text-muted-3);">Username</th>
                             <th class="text-left px-6 py-3 font-medium text-xs uppercase tracking-wide"
+                                style="color: var(--color-text-muted-3);">Email</th>
+                            <th class="text-left px-6 py-3 font-medium text-xs uppercase tracking-wide"
                                 style="color: var(--color-text-muted-3);">Created</th>
                             <th class="text-left px-6 py-3 font-medium text-xs uppercase tracking-wide"
                                 style="color: var(--color-text-muted-3);">Status</th>
@@ -172,6 +192,7 @@
                         @foreach ($users as $user)
                             <tr class="table-row transition-colors">
                                 <td class="px-6 py-4 font-medium" style="color: var(--color-text-primary);">{{ $user->username }}</td>
+                                <td class="px-6 py-4" style="color: var(--color-text-muted-3);">{{ $user->email }}</td>
                                 <td class="px-6 py-4" style="color: var(--color-text-muted-3);">{{ $user->created_at->format('M j, Y') }}</td>
                                 <td class="px-6 py-4">
                                     @if ($user->must_change_password)

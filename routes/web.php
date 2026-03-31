@@ -6,6 +6,7 @@ use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RunnerController;
 use App\Http\Controllers\SavedRequestController;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,12 @@ Route::get('/', fn () => redirect()->route('workspace'));
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+
+    // Password reset
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
 
 // Authenticated routes (password change allowed even when must_change_password=true)

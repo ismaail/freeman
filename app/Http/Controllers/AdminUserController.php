@@ -22,6 +22,7 @@ class AdminUserController extends Controller
     {
         $this->users->create([
             'username' => $request->username,
+            'email' => $request->email,
             'password' => $request->password,
             'is_super_admin' => false,
             'must_change_password' => true,
