@@ -4,8 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Symfony\Component\Process\Process;
 
 class FreemanInstall extends Command
 {
@@ -27,7 +27,10 @@ class FreemanInstall extends Command
         $this->line('  ─────────────────────────────────────────────────');
         $this->info('');
 
-        // Step 0: System requirements
+        // Step 0: Composer dependencies
+        $this->stepComposer();
+
+        // Step 1: System requirements
         $this->stepRequirements();
 
         // Step 1: .env file
@@ -59,6 +62,42 @@ class FreemanInstall extends Command
         $this->info('');
 
         return self::SUCCESS;
+    }
+
+    private function stepComposer(): void
+    {
+        $this->line('  [0/6] Composer dependencies');
+
+        if (is_dir(base_path('vendor')) && file_exists(base_path('vendor/autoload.php'))) {
+            $this->line('        vendor/ already present — skipping.');
+            return;
+        }
+
+        $this->line('        Running composer install...');
+        $this->info('');
+
+        $process = new Process(['composer', 'install'], base_path());
+        $process->setTimeout(300);
+
+        try {
+            $process->setTty(true);
+            $process->run();
+        } catch (\Throwable) {
+            // TTY not available (e.g. piped input) — fall back to inherited I/O
+            $process->setTty(false);
+            $process->setInput(STDIN);
+            $process->run(function (string $_type, string $output) {
+                $this->getOutput()->write($output);
+            });
+        }
+
+        if (! $process->isSuccessful()) {
+            $this->error('        composer install failed. Fix the errors above and re-run.');
+            exit(self::FAILURE);
+        }
+
+        $this->info('');
+        $this->line('        Dependencies installed.');
     }
 
     private function stepRequirements(): void
