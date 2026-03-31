@@ -24,7 +24,8 @@ if (! file_exists(__DIR__ . '/vendor/autoload.php')) {
         exit(1);
     }
 
-    passthru($composer . ' install --prefer-dist', $exitCode);
+    putenv('COMPOSER_ALLOW_SUPERUSER=1');
+    passthru($composer . ' install --no-interaction --prefer-dist', $exitCode);
 
     if ($exitCode !== 0) {
         fwrite(STDERR, "\n  \033[31mComposer install failed. Fix the errors above and try again.\033[0m\n\n");
