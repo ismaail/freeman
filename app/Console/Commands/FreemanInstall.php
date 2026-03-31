@@ -39,10 +39,13 @@ class FreemanInstall extends Command
         // Step 3: SQLite database file
         $this->stepDatabase();
 
-        // Step 4: Migrations
+        // Step 4: Storage permissions (Linux only)
+        $this->stepPermissions();
+
+        // Step 5: Migrations
         $this->stepMigrations();
 
-        // Step 5: Super admin
+        // Step 6: Super admin
         $this->stepSuperAdmin();
 
         // Done
@@ -124,7 +127,7 @@ class FreemanInstall extends Command
 
     private function stepDatabase(): void
     {
-        $this->line('  [4/6] SQLite database');
+        $this->line('  [4/7] SQLite database');
 
         $dbPath = database_path('database.sqlite');
 
@@ -137,16 +140,42 @@ class FreemanInstall extends Command
         $this->line('        Created database/database.sqlite');
     }
 
+    private function stepPermissions(): void
+    {
+        $this->line('  [5/7] Storage permissions');
+
+        if (PHP_OS_FAMILY !== 'Linux') {
+            $this->line('        Skipped (not Linux).');
+            return;
+        }
+
+        $base    = base_path();
+        $storage = storage_path();
+        $cache   = base_path('bootstrap/cache');
+
+        if (function_exists('posix_getuid') && posix_getuid() === 0) {
+            exec("chown -R www-data:www-data " . escapeshellarg($base));
+            exec("chmod -R 755 " . escapeshellarg($storage));
+            exec("chmod -R 755 " . escapeshellarg($cache));
+            $this->line('        Permissions set for www-data.');
+        } else {
+            $this->line('        Not running as root — set permissions manually:');
+            $this->line("          sudo chown -R www-data:www-data {$base}");
+            $this->line("          sudo chmod -R 755 {$storage}");
+            $this->line("          sudo chmod -R 755 {$cache}");
+        }
+    }
+
     private function stepMigrations(): void
     {
-        $this->line('  [5/6] Running migrations');
+        $this->line('  [6/7] Running migrations');
 
         $this->call('migrate', ['--force' => true]);
     }
 
     private function stepSuperAdmin(): void
     {
-        $this->line('  [6/6] Super admin account');
+        $this->line('  [7/7] Super admin account');
         $this->info('');
 
         // Check if a super admin already exists
