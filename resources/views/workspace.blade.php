@@ -25,6 +25,7 @@
     </div>
 
     @include('workspace.collection-variables-modal')
+    @include('workspace.save-request-modal')
 
     {{-- Variable hover tooltip --}}
     <div x-show="varTooltip.show"

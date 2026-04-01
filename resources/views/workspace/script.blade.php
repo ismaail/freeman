@@ -44,6 +44,16 @@ function workspace() {
         newCollectionLoading: false,
         newCollectionError: null,
 
+        // Save-to-collection modal
+        saveModal: {
+            open: false,
+            name: 'New Request',
+            collectionId: null,
+            folderId: null,
+            saving: false,
+            error: null,
+        },
+
         // Request being built
         currentRequest: {
             name: 'New Request',
@@ -76,6 +86,18 @@ function workspace() {
 
         get activeEnvironment() {
             return this.environments.find(e => e.is_active) || null;
+        },
+
+        get saveModalFolders() {
+            if (!this.saveModal.collectionId) return [];
+            const col = this.collections.find(c => c.id == this.saveModal.collectionId);
+            if (!col || !col.folders) return [];
+            const flatten = (folders, prefix = '') =>
+                folders.flatMap(f => [
+                    { id: f.id, name: prefix + f.name },
+                    ...flatten(f.children || [], prefix + f.name + ' / '),
+                ]);
+            return flatten(col.folders);
         },
 
         get filledParamCount() {
@@ -252,10 +274,66 @@ function workspace() {
 
         // ---- Save (existing request only; full save modal is future work) ----
 
+        openSaveModal() {
+            this.saveModal = {
+                open: true,
+                name: this.currentRequest.name || 'New Request',
+                collectionId: null,
+                folderId: null,
+                saving: false,
+                error: null,
+            };
+        },
+
+        async confirmSaveRequest() {
+            if (!this.saveModal.collectionId) {
+                this.saveModal.error = 'Please select a collection.';
+                return;
+            }
+            this.saveModal.saving = true;
+            this.saveModal.error = null;
+            try {
+                const res = await fetch('/requests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept':       'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({
+                        name:          this.saveModal.name,
+                        method:        this.currentRequest.method,
+                        url:           this.currentRequest.url,
+                        collection_id: this.saveModal.collectionId,
+                        folder_id:     this.saveModal.folderId || null,
+                        headers:       this.currentRequest.headers.filter(h => h.key.trim()),
+                        body_type:     this.currentRequest.body_type,
+                        body:          this.currentRequest.body,
+                        auth_type:     this.currentRequest.auth_type,
+                        auth_data:     this.currentRequest.auth_data,
+                    }),
+                });
+                const json = await res.json();
+                if (!res.ok) {
+                    this.saveModal.error = json.message || 'Failed to save.';
+                    return;
+                }
+                this.activeRequestId = json.data.id;
+                this.currentRequest.name = this.saveModal.name;
+                this.currentRequest.collection_id = this.saveModal.collectionId;
+                this.saveModal.open = false;
+                await this.loadCollections();
+            } catch (e) {
+                this.saveModal.error = 'An error occurred.';
+                console.error('confirmSaveRequest:', e);
+            } finally {
+                this.saveModal.saving = false;
+            }
+        },
+
         async saveRequest() {
             if (!this.activeRequestId) {
-                // TODO: open "save to collection" modal
-                alert('Choose a collection to save to — save modal coming soon.');
+                this.openSaveModal();
                 return;
             }
             try {
