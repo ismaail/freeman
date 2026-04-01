@@ -2,11 +2,9 @@
 <div x-show="!requestOpen"
      class="flex-1 flex items-center justify-center">
     <div class="text-center" style="max-width:400px;">
-        <div class="flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-5"
+        <div class="flex items-center justify-center w-32 h-32 rounded-2xl mx-auto mb-5"
              style="background:var(--color-brand-tint-bg); border:1px solid var(--color-brand-tint-border);">
-            <svg class="w-8 h-8" style="color:var(--color-brand)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
+            <img src="{{ asset('images/Freeman-logo-transparent.png') }}" alt="Freeman" class="w-24 h-24 object-contain">
         </div>
         <h2 class="text-lg font-semibold text-white mb-2">Ready to test APIs?</h2>
         <p class="text-sm mb-6" style="color:var(--color-text-muted-5);">

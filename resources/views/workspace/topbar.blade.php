@@ -10,9 +10,7 @@
 
     {{-- Logo --}}
     <a href="{{ route('workspace') }}" class="flex items-center gap-2 mr-2" style="text-decoration:none;">
-        <svg class="w-5 h-5" style="color:var(--color-brand)" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
-        </svg>
+        <img src="{{ asset('images/Freeman-logo-transparent.png') }}" alt="Freeman" class="h-7 w-auto">
         <span class="text-white font-semibold text-sm tracking-wide select-none">Freeman</span>
     </a>
 
