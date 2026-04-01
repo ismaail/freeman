@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Repositories\UserRepository;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -30,6 +31,29 @@ class AdminUserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('status', "User \"{$request->username}\" created.");
+    }
+
+    public function update(int $id, UpdateUserRequest $request): RedirectResponse
+    {
+        $user = $this->users->findOrFail($id);
+
+        if ($user->is_super_admin) {
+            abort(403, 'Cannot edit a super admin.');
+        }
+
+        $data = [
+            'username' => $request->username,
+            'email' => $request->email,
+        ];
+
+        if ($request->filled('password')) {
+            $data['password'] = $request->password;
+        }
+
+        $this->users->update($user, $data);
+
+        return redirect()->route('admin.users.index')
+            ->with('status', "User \"{$request->username}\" updated.");
     }
 
     public function destroy(int $id): RedirectResponse

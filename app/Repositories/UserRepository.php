@@ -24,6 +24,11 @@ class UserRepository
         return User::findOrFail($id);
     }
 
+    public function update(User $user, array $data): void
+    {
+        $user->update($data);
+    }
+
     public function delete(User $user): void
     {
         $user->delete();

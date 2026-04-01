@@ -54,20 +54,20 @@
 
                 <div class="space-y-4">
                     <div>
-                        <label for="username" class="block text-sm font-medium mb-1"
-                               style="color: var(--color-text-muted-1);">Username</label>
+                        <label for="login" class="block text-sm font-medium mb-1"
+                               style="color: var(--color-text-muted-1);">Username or Email</label>
                         <input
                             type="text"
-                            id="username"
-                            name="username"
-                            value="{{ old('username') }}"
+                            id="login"
+                            name="login"
+                            value="{{ old('login') }}"
                             required
                             autofocus
                             autocomplete="username"
-                            class="auth-input w-full px-3 py-2 rounded-lg text-sm @error('username') input-error @enderror"
-                            placeholder="Enter your username"
+                            class="auth-input w-full px-3 py-2 rounded-lg text-sm @error('login') input-error @enderror"
+                            placeholder="Enter your username or email"
                         >
-                        @error('username')
+                        @error('login')
                             <p class="mt-1 text-xs" style="color: var(--color-danger-light);">{{ $message }}</p>
                         @enderror
                     </div>

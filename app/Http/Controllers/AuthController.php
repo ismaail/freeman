@@ -16,15 +16,23 @@ class AuthController extends Controller
 
     public function login(Request $request): RedirectResponse
     {
-        $credentials = $request->validate([
-            'username' => ['required', 'string'],
+        $request->validate([
+            'login' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
+        $login = $request->input('login');
+        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+        $credentials = [
+            $field => $login,
+            'password' => $request->input('password'),
+        ];
+
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors([
-                'username' => 'These credentials do not match our records.',
-            ])->onlyInput('username');
+                'login' => 'These credentials do not match our records.',
+            ])->onlyInput('login');
         }
 
         $request->session()->regenerate();

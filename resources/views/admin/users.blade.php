@@ -208,15 +208,26 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <button
-                                        @click="confirmDelete({{ $user->id }}, '{{ addslashes($user->username) }}')"
-                                        class="text-xs font-medium transition-colors"
-                                        style="color: var(--color-danger);"
-                                        onmouseover="this.style.color='var(--color-danger-light)'"
-                                        onmouseout="this.style.color='var(--color-danger)'"
-                                    >
-                                        Delete
-                                    </button>
+                                    <div class="flex items-center justify-end gap-3">
+                                        <button
+                                            @click="openEdit({{ $user->id }}, '{{ addslashes($user->username) }}', '{{ addslashes($user->email ?? '') }}')"
+                                            class="text-xs font-medium transition-colors"
+                                            style="color: var(--color-brand);"
+                                            onmouseover="this.style.color='var(--color-brand-hover)'"
+                                            onmouseout="this.style.color='var(--color-brand)'"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            @click="confirmDelete({{ $user->id }}, '{{ addslashes($user->username) }}')"
+                                            class="text-xs font-medium transition-colors"
+                                            style="color: var(--color-danger);"
+                                            onmouseover="this.style.color='var(--color-danger-light)'"
+                                            onmouseout="this.style.color='var(--color-danger)'"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -226,6 +237,101 @@
         </div>
 
     </main>
+
+    {{-- Edit user modal --}}
+    <div
+        x-show="editModal.open"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center"
+        @keydown.escape.window="editModal.open = false"
+    >
+        <div
+            class="absolute inset-0"
+            style="background: rgba(0,0,0,0.5);"
+            @click="editModal.open = false"
+        ></div>
+
+        <div
+            class="relative rounded-xl shadow-xl p-6 w-full max-w-sm mx-4"
+            style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-menu);"
+            x-transition:enter="transition ease-out duration-150"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+        >
+            <h3 class="text-base font-semibold mb-4" style="color: var(--color-text-primary);">Edit user</h3>
+
+            <form method="POST" :action="`/admin/users/${editModal.userId}`" @submit="submitting = true">
+                @csrf
+                @method('PATCH')
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1" style="color: var(--color-text-muted-1);">Username</label>
+                        <input
+                            type="text"
+                            name="username"
+                            x-model="editModal.username"
+                            required
+                            autocomplete="off"
+                            class="form-input w-full px-3 py-2 rounded-lg text-sm"
+                            placeholder="Username"
+                        >
+                        @error('username')
+                            <p class="mt-1 text-xs" style="color: var(--color-danger-light);">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" style="color: var(--color-text-muted-1);">Email address</label>
+                        <input
+                            type="email"
+                            name="email"
+                            x-model="editModal.email"
+                            required
+                            autocomplete="off"
+                            class="form-input w-full px-3 py-2 rounded-lg text-sm"
+                            placeholder="user@example.com"
+                        >
+                        @error('email')
+                            <p class="mt-1 text-xs" style="color: var(--color-danger-light);">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" style="color: var(--color-text-muted-1);">New password <span style="color: var(--color-text-muted-4);">(leave blank to keep current)</span></label>
+                        <input
+                            type="text"
+                            name="password"
+                            autocomplete="off"
+                            class="form-input w-full px-3 py-2 rounded-lg text-sm"
+                            placeholder="Min 8 characters"
+                        >
+                        @error('password')
+                            <p class="mt-1 text-xs" style="color: var(--color-danger-light);">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="mt-5 flex gap-3">
+                    <button
+                        type="submit"
+                        class="btn-primary flex-1 text-sm font-medium py-2 rounded-lg"
+                        :disabled="submitting"
+                    >
+                        <span x-show="!submitting">Save changes</span>
+                        <span x-show="submitting" x-cloak>Saving…</span>
+                    </button>
+                    <button
+                        type="button"
+                        @click="editModal.open = false"
+                        class="btn-secondary flex-1 text-sm font-medium py-2 rounded-lg"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     {{-- Delete confirmation modal --}}
     <div
@@ -287,10 +393,22 @@ function userManager() {
     return {
         showCreateForm: {{ $errors->any() ? 'true' : 'false' }},
         submitting: false,
+        editModal: {
+            open: false,
+            userId: null,
+            username: '',
+            email: '',
+        },
         deleteModal: {
             open: false,
             userId: null,
             username: '',
+        },
+        openEdit(id, username, email) {
+            this.editModal.userId = id;
+            this.editModal.username = username;
+            this.editModal.email = email;
+            this.editModal.open = true;
         },
         confirmDelete(id, username) {
             this.deleteModal.userId = id;
