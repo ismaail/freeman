@@ -29,11 +29,6 @@
                 class="flex-1 py-2.5 text-[10px] uppercase tracking-widest font-semibold transition-colors hover:text-gray-300">
             Envs
         </button>
-        <button @click="sidebarTab = 'history'"
-                :style="sidebarTab === 'history' ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
-                class="flex-1 py-2.5 text-[10px] uppercase tracking-widest font-semibold transition-colors hover:text-gray-300">
-            History
-        </button>
     </div>
 
     {{-- Sidebar scrollable content --}}
@@ -285,15 +280,6 @@
             </div>
         </div>
 
-        {{-- ---- HISTORY TAB ---- --}}
-        <div x-show="sidebarTab === 'history'">
-            <div class="flex flex-col items-center justify-center py-10 px-4 text-center">
-                <svg class="w-9 h-9 mb-3" style="color:var(--color-border-menu)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p class="text-xs" style="color:var(--color-text-muted-5)">History coming soon</p>
-            </div>
-        </div>
 
     </div>{{-- end sidebar scroll --}}
 
