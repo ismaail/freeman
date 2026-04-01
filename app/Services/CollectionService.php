@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Collection;
 use App\Models\CollectionFolder;
-use App\Models\CollectionVariable;
 use App\Repositories\CollectionRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
@@ -12,9 +11,9 @@ class CollectionService
 {
     public function __construct(private CollectionRepository $repo) {}
 
-    public function listForUser(int $userId): EloquentCollection
+    public function listAll(): EloquentCollection
     {
-        return $this->repo->allForUserWithTree($userId);
+        return $this->repo->allWithTree();
     }
 
     public function create(int $userId, array $data): Collection
@@ -22,25 +21,23 @@ class CollectionService
         return $this->repo->create($userId, $data);
     }
 
-    public function update(int $id, int $userId, array $data): Collection
+    public function update(int $id, array $data): Collection
     {
-        $collection = $this->repo->findForUser($id, $userId);
+        $collection = $this->repo->find($id);
 
         return $this->repo->update($collection, $data);
     }
 
-    public function delete(int $id, int $userId): void
+    public function delete(int $id): void
     {
-        $collection = $this->repo->findForUser($id, $userId);
+        $collection = $this->repo->find($id);
         $this->repo->delete($collection);
     }
 
-    public function createFolder(int $collectionId, int $userId, array $data): CollectionFolder
+    public function createFolder(int $collectionId, array $data): CollectionFolder
     {
-        // Verify collection ownership before creating inside it.
-        $this->repo->findForUser($collectionId, $userId);
+        $this->repo->find($collectionId);
 
-        // If nesting under a parent, verify the parent belongs to the same collection.
         if (! empty($data['parent_folder_id'])) {
             $this->repo->findFolder((int) $data['parent_folder_id'], $collectionId);
         }
@@ -48,33 +45,31 @@ class CollectionService
         return $this->repo->createFolder($collectionId, $data);
     }
 
-    public function updateFolder(int $folderId, int $collectionId, int $userId, array $data): CollectionFolder
+    public function updateFolder(int $folderId, int $collectionId, array $data): CollectionFolder
     {
-        $this->repo->findForUser($collectionId, $userId);
         $folder = $this->repo->findFolder($folderId, $collectionId);
 
         return $this->repo->updateFolder($folder, $data);
     }
 
-    public function deleteFolder(int $folderId, int $collectionId, int $userId): void
+    public function deleteFolder(int $folderId, int $collectionId): void
     {
-        $this->repo->findForUser($collectionId, $userId);
         $folder = $this->repo->findFolder($folderId, $collectionId);
         $this->repo->deleteFolder($folder);
     }
 
     // --- Variable methods ---
 
-    public function getVariables(int $collectionId, int $userId): EloquentCollection
+    public function getVariables(int $collectionId): EloquentCollection
     {
-        $collection = $this->repo->findForUser($collectionId, $userId);
+        $collection = $this->repo->find($collectionId);
 
         return $this->repo->getVariables($collection);
     }
 
-    public function syncVariables(int $collectionId, int $userId, array $variables): EloquentCollection
+    public function syncVariables(int $collectionId, array $variables): EloquentCollection
     {
-        $collection = $this->repo->findForUser($collectionId, $userId);
+        $collection = $this->repo->find($collectionId);
 
         return $this->repo->syncVariables($collection, $variables);
     }

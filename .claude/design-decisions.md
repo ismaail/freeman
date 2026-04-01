@@ -28,9 +28,9 @@ _This file is auto-imported by CLAUDE.md. Log every significant architectural de
 
 ---
 
-## DD-005 — Per-user isolated workspaces (no sharing in v1)
-**Decision:** Collections, environments, and history are all scoped to the owning user. No sharing between users in v1.
-**Reason:** Sharing requires permissions, conflict resolution, and visibility rules — significant complexity for v1. Sharing can be added in v2 as an optional feature.
+## DD-005 — Per-user isolated workspaces (revised by DD-012)
+**Decision:** ~~Collections, environments, and history are all scoped to the owning user.~~ See DD-012.
+**What remains per-user:** Environments, request history (`request_logs`).
 
 ---
 
@@ -67,3 +67,9 @@ _This file is auto-imported by CLAUDE.md. Log every significant architectural de
 ## DD-011 — Variable priority: collection vars < env vars
 **Decision:** When both a collection variable and an environment variable share the same key, the environment variable wins (`array_merge($collectionVars, $envVars)`).
 **Reason:** Matches Postman's precedence model. Allows environment variables to override collection defaults (e.g. collection sets `BASE_URL=localhost`, environment overrides to `BASE_URL=https://api.prod.com`). Implemented now even though env vars are v2, so the merge logic never needs to change.
+
+---
+
+## DD-012 — Collections shared across all users
+**Decision:** Collections (and the requests/folders/variables inside them) are visible and editable by every authenticated user. The `user_id` column on `collections` and `requests` is retained as an audit "created_by" field but is not used for access control.
+**Reason:** Teams working on the same instance need to collaborate on the same API collections. Per-user isolation made sense for personal tooling but is a blocker for team use. Environments and request history remain per-user (personal state).

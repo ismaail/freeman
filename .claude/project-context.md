@@ -154,6 +154,7 @@ DELETE /admin/users/{id}            → delete user
 | Request builder UI | ✅ Done |
 | Request execution (Guzzle proxy) | ✅ Done |
 | Collection variables (`{{VAR}}` substitution) | ✅ Done |
+| Shared collections (all users) | ✅ Done |
 | Environments + variables | ⏳ Not started (v2) |
 | Request history | ⏳ Not started |
 | Import/Export collections | ✅ Done |

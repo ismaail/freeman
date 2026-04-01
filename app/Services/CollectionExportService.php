@@ -19,9 +19,9 @@ class CollectionExportService
     /**
      * Returns the Postman v2.1 array structure for the given collection.
      */
-    public function export(int $collectionId, int $userId): array
+    public function export(int $collectionId): array
     {
-        $collection = $this->repo->withTree($collectionId, $userId);
+        $collection = $this->repo->withTree($collectionId);
 
         return [
             'info' => [

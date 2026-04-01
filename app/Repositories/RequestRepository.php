@@ -9,45 +9,31 @@ use Illuminate\Database\Eloquent\Collection;
 class RequestRepository
 {
     /**
-     * All requests owned by a user.
+     * Single request — throws ModelNotFoundException if not found.
      */
-    public function allForUser(int $userId): Collection
+    public function find(int $id): Request
     {
-        return Request::where('user_id', $userId)
-            ->orderBy('name')
-            ->get();
+        return Request::findOrFail($id);
     }
 
     /**
-     * All requests in a collection, scoped to owner.
+     * All requests in a collection.
      */
-    public function forCollection(int $collectionId, int $userId): Collection
+    public function forCollection(int $collectionId): Collection
     {
         return Request::where('collection_id', $collectionId)
-            ->where('user_id', $userId)
             ->orderBy('name')
             ->get();
     }
 
     /**
-     * All requests in a folder, scoped to owner.
+     * All requests in a folder.
      */
-    public function forFolder(int $folderId, int $userId): Collection
+    public function forFolder(int $folderId): Collection
     {
         return Request::where('folder_id', $folderId)
-            ->where('user_id', $userId)
             ->orderBy('name')
             ->get();
-    }
-
-    /**
-     * Single request scoped to owner — throws ModelNotFoundException if not found or not owned.
-     */
-    public function findForUser(int $id, int $userId): Request
-    {
-        return Request::where('id', $id)
-            ->where('user_id', $userId)
-            ->firstOrFail();
     }
 
     public function create(int $userId, array $data): Request

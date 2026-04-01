@@ -14,62 +14,61 @@ class RequestService
         private CollectionRepository $collections,
     ) {}
 
-    public function find(int $id, int $userId): ApiRequest
+    public function find(int $id): ApiRequest
     {
-        return $this->repo->findForUser($id, $userId);
+        return $this->repo->find($id);
     }
 
     /**
-     * All requests in a collection — verifies collection ownership first.
+     * All requests in a collection.
      */
-    public function forCollection(int $collectionId, int $userId): Collection
+    public function forCollection(int $collectionId): Collection
     {
-        $this->collections->findForUser($collectionId, $userId);
+        $this->collections->find($collectionId);
 
-        return $this->repo->forCollection($collectionId, $userId);
+        return $this->repo->forCollection($collectionId);
     }
 
     /**
-     * All requests in a folder — verifies collection then folder ownership.
+     * All requests in a folder — verifies folder belongs to the collection.
      */
-    public function forFolder(int $folderId, int $collectionId, int $userId): Collection
+    public function forFolder(int $folderId, int $collectionId): Collection
     {
-        $this->collections->findForUser($collectionId, $userId);
         $this->collections->findFolder($folderId, $collectionId);
 
-        return $this->repo->forFolder($folderId, $userId);
+        return $this->repo->forFolder($folderId);
     }
 
     public function create(int $userId, array $data): ApiRequest
     {
-        $this->authorizeCollectionAndFolder($data, $userId);
+        $this->authorizeCollectionAndFolder($data);
 
         return $this->repo->create($userId, $data);
     }
 
-    public function update(int $id, int $userId, array $data): ApiRequest
+    public function update(int $id, array $data): ApiRequest
     {
-        $request = $this->repo->findForUser($id, $userId);
+        $request = $this->repo->find($id);
 
-        $this->authorizeCollectionAndFolder($data, $userId);
+        $this->authorizeCollectionAndFolder($data);
 
         return $this->repo->update($request, $data);
     }
 
-    public function delete(int $id, int $userId): void
+    public function delete(int $id): void
     {
-        $request = $this->repo->findForUser($id, $userId);
+        $request = $this->repo->find($id);
         $this->repo->delete($request);
     }
 
     /**
-     * When a collection_id or folder_id is supplied, verify the authenticated
-     * user actually owns them before writing. Prevents cross-user data injection.
+     * When a collection_id or folder_id is supplied, verify they exist
+     * and that the folder belongs to the collection.
      */
-    private function authorizeCollectionAndFolder(array $data, int $userId): void
+    private function authorizeCollectionAndFolder(array $data): void
     {
         if (! empty($data['collection_id'])) {
-            $this->collections->findForUser((int) $data['collection_id'], $userId);
+            $this->collections->find((int) $data['collection_id']);
         }
 
         if (! empty($data['folder_id'])) {

@@ -13,7 +13,7 @@ class SavedRequestController extends Controller
 
     public function show(int $request): JsonResponse
     {
-        $saved = $this->service->find($request, auth()->id());
+        $saved = $this->service->find($request);
 
         return response()->json(['data' => $saved]);
     }
@@ -27,34 +27,34 @@ class SavedRequestController extends Controller
 
     public function update(UpdateRequestRequest $request, int $savedRequest): JsonResponse
     {
-        $updated = $this->service->update($savedRequest, auth()->id(), $request->validated());
+        $updated = $this->service->update($savedRequest, $request->validated());
 
         return response()->json(['data' => $updated]);
     }
 
     public function destroy(int $savedRequest): JsonResponse
     {
-        $this->service->delete($savedRequest, auth()->id());
+        $this->service->delete($savedRequest);
 
         return response()->json(['message' => 'Request deleted.']);
     }
 
     /**
-     * All requests in a collection (scoped to auth user).
+     * All requests in a collection.
      */
     public function indexForCollection(int $collection): JsonResponse
     {
-        $requests = $this->service->forCollection($collection, auth()->id());
+        $requests = $this->service->forCollection($collection);
 
         return response()->json(['data' => $requests]);
     }
 
     /**
-     * All requests in a folder (scoped to auth user via collection ownership).
+     * All requests in a folder.
      */
     public function indexForFolder(int $collection, int $folder): JsonResponse
     {
-        $requests = $this->service->forFolder($folder, $collection, auth()->id());
+        $requests = $this->service->forFolder($folder, $collection);
 
         return response()->json(['data' => $requests]);
     }

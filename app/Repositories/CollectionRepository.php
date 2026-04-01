@@ -10,54 +10,33 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 class CollectionRepository
 {
     /**
-     * All collections for a user, ordered by name.
+     * All collections with their full tree, ordered by name.
      */
-    public function allForUser(int $userId): EloquentCollection
+    public function allWithTree(): EloquentCollection
     {
-        return Collection::where('user_id', $userId)
+        return Collection::with([
+            'folders' => fn ($q) => $q->orderBy('name'),
+            'folders.requests' => fn ($q) => $q->orderBy('name'),
+            'requests' => fn ($q) => $q->whereNull('folder_id')->orderBy('name'),
+        ])
             ->orderBy('name')
             ->get();
     }
 
     /**
-     * All collections with their full tree for a user.
-     *
-     * Folders are returned flat (with their direct requests). The client builds
-     * the hierarchy from parent_folder_id. Direct collection requests (no folder)
-     * are included separately.
+     * Single collection — throws ModelNotFoundException if not found.
      */
-    public function allForUserWithTree(int $userId): EloquentCollection
+    public function find(int $id): Collection
     {
-        return Collection::where('user_id', $userId)
-            ->with([
-                'folders' => fn ($q) => $q->orderBy('name'),
-                'folders.requests' => fn ($q) => $q->orderBy('name'),
-                'requests' => fn ($q) => $q->whereNull('folder_id')->orderBy('name'),
-            ])
-            ->orderBy('name')
-            ->get();
-    }
-
-    /**
-     * Single collection scoped to user — throws ModelNotFoundException if not found or not owned.
-     */
-    public function findForUser(int $id, int $userId): Collection
-    {
-        return Collection::where('id', $id)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+        return Collection::findOrFail($id);
     }
 
     /**
      * Collection with its full folder/request tree loaded.
-     *
-     * Loads all folders (with nested children and their requests) and all
-     * requests that sit directly on the collection (no folder).
      */
-    public function withTree(int $id, int $userId): Collection
+    public function withTree(int $id): Collection
     {
         return Collection::where('id', $id)
-            ->where('user_id', $userId)
             ->with([
                 'folders' => fn ($q) => $q->orderBy('name'),
                 'folders.children' => fn ($q) => $q->orderBy('name'),

@@ -9,7 +9,6 @@ use App\Services\CollectionImportService;
 use App\Services\CollectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CollectionController extends Controller
@@ -22,7 +21,7 @@ class CollectionController extends Controller
 
     public function index(): JsonResponse
     {
-        $collections = $this->service->listForUser(auth()->id());
+        $collections = $this->service->listAll();
 
         return response()->json(['data' => $collections]);
     }
@@ -36,14 +35,14 @@ class CollectionController extends Controller
 
     public function update(UpdateCollectionRequest $request, int $collection): JsonResponse
     {
-        $updated = $this->service->update($collection, auth()->id(), $request->validated());
+        $updated = $this->service->update($collection, $request->validated());
 
         return response()->json(['data' => $updated]);
     }
 
     public function destroy(int $collection): JsonResponse
     {
-        $this->service->delete($collection, auth()->id());
+        $this->service->delete($collection);
 
         return response()->json(['message' => 'Collection deleted.']);
     }
@@ -57,7 +56,7 @@ class CollectionController extends Controller
      */
     public function showVariables(int $collection): JsonResponse
     {
-        $variables = $this->service->getVariables($collection, auth()->id());
+        $variables = $this->service->getVariables($collection);
 
         return response()->json(['data' => $variables]);
     }
@@ -74,7 +73,7 @@ class CollectionController extends Controller
             'variables.*.enabled' => ['boolean'],
         ]);
 
-        $variables = $this->service->syncVariables($collection, auth()->id(), $request->input('variables', []));
+        $variables = $this->service->syncVariables($collection, $request->input('variables', []));
 
         return response()->json(['data' => $variables]);
     }
@@ -89,7 +88,7 @@ class CollectionController extends Controller
      */
     public function export(int $collection): StreamedResponse
     {
-        $data     = $this->exportService->export($collection, auth()->id());
+        $data     = $this->exportService->export($collection);
         $json     = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $filename = 'freeman-collection-' . $collection . '.json';
 
