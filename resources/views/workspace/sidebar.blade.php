@@ -144,6 +144,15 @@
                                      @click.outside="collectionMenuOpen = null"
                                      class="absolute right-0 top-full mt-1 w-40 rounded shadow-2xl z-50 py-1"
                                      style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                                    <button @click="openNewFolderModal(col.id); toggleCollection(col.id); collectionMenuOpen = null"
+                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                            style="color:var(--color-text-primary)"
+                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                        </svg>
+                                        Add Folder
+                                    </button>
                                     <button @click="openCollectionVariables(col.id, col.name); collectionMenuOpen = null"
                                             class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
                                             style="color:var(--color-text-primary)"
@@ -179,61 +188,96 @@
                         {{-- Expanded collection contents --}}
                         <div x-show="isCollectionExpanded(col.id)">
 
-                            {{-- Direct requests (no folder) --}}
-                            <template x-for="req in (col.requests || [])" :key="'req-' + req.id">
-                                <div @click="openRequest(req.id)"
-                                     class="flex items-center gap-2 pl-8 pr-3 py-1.5 cursor-pointer transition-colors"
-                                     :style="activeRequestId === req.id ? 'background:var(--color-bg-active-item)' : ''"
-                                     onmouseover="if(this.getAttribute('data-active')!=='1') this.style.background='var(--color-bg-hover-subtle)'"
-                                     onmouseout="if(this.getAttribute('data-active')!=='1') this.style.background=''"
-                                     :data-active="activeRequestId === req.id ? '1' : '0'">
-                                    <span :class="methodColor(req.method)"
-                                          class="text-[9px] font-bold font-mono flex-shrink-0"
-                                          style="width:36px; text-align:right"
-                                          x-text="req.method"></span>
-                                    <span x-text="req.name" class="text-xs truncate" style="color:var(--color-text-secondary)"></span>
-                                </div>
-                            </template>
-
-                            {{-- Folders --}}
-                            <template x-for="folder in (col.folders || [])" :key="'fold-' + folder.id">
+                            {{-- Flat depth-first tree: requests + folders at all nesting levels --}}
+                            <template x-for="item in flatCollectionTree(col)" :key="item.type + '-' + (item.type === 'folder' ? item.folder.id : item.req.id) + '-d' + item.depth">
                                 <div>
-                                    {{-- Folder header --}}
-                                    <div @click="toggleFolder(folder.id)"
-                                         class="flex items-center gap-1.5 pl-6 pr-3 py-1.5 cursor-pointer select-none transition-colors"
-                                         onmouseover="this.style.background='var(--color-bg-hover-subtle)'" onmouseout="this.style.background='transparent'">
-                                        <svg class="w-2.5 h-2.5 flex-shrink-0 transition-transform duration-150"
-                                             :style="isFolderExpanded(folder.id) ? 'transform:rotate(90deg); color:var(--color-text-muted-3)' : 'color:var(--color-border-input)'"
-                                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                        </svg>
-                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-folder)" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-                                        </svg>
-                                        <span x-text="folder.name" class="text-xs truncate flex-1" style="color:var(--color-text-muted-1)"></span>
-                                    </div>
 
-                                    {{-- Folder requests --}}
-                                    <div x-show="isFolderExpanded(folder.id)">
-                                        <template x-for="req in (folder.requests || [])" :key="'fr-' + req.id">
-                                            <div @click="openRequest(req.id)"
-                                                 class="flex items-center gap-2 pl-12 pr-3 py-1.5 cursor-pointer transition-colors"
-                                                 :style="activeRequestId === req.id ? 'background:var(--color-bg-active-item)' : ''"
-                                                 onmouseover="if(this.getAttribute('data-active')!=='1') this.style.background='var(--color-bg-hover-subtle)'"
-                                                 onmouseout="if(this.getAttribute('data-active')!=='1') this.style.background=''"
-                                                 :data-active="activeRequestId === req.id ? '1' : '0'">
-                                                <span :class="methodColor(req.method)"
-                                                      class="text-[9px] font-bold font-mono flex-shrink-0"
-                                                      style="width:36px; text-align:right"
-                                                      x-text="req.method"></span>
-                                                <span x-text="req.name" class="text-xs truncate" style="color:var(--color-text-secondary)"></span>
+                                {{-- Request row --}}
+                                <template x-if="item.type === 'request'">
+                                    <div @click="openRequest(item.req.id)"
+                                         class="flex items-center gap-2 pr-3 py-1.5 cursor-pointer transition-colors"
+                                         :style="'padding-left:' + (32 + item.depth * 16) + 'px;' + (activeRequestId === item.req.id ? 'background:var(--color-bg-active-item)' : '')"
+                                         onmouseover="if(this.getAttribute('data-active')!=='1') this.style.background='var(--color-bg-hover-subtle)'"
+                                         onmouseout="if(this.getAttribute('data-active')!=='1') this.style.background=''"
+                                         :data-active="activeRequestId === item.req.id ? '1' : '0'">
+                                        <span :class="methodColor(item.req.method)"
+                                              class="text-[9px] font-bold font-mono flex-shrink-0"
+                                              style="width:36px; text-align:right"
+                                              x-text="item.req.method"></span>
+                                        <span x-text="item.req.name" class="text-xs truncate" style="color:var(--color-text-secondary)"></span>
+                                    </div>
+                                </template>
+
+                                {{-- Folder row --}}
+                                <template x-if="item.type === 'folder'">
+                                    <div class="relative group select-none"
+                                         @click.outside="folderMenuOpen === item.folder.id && (folderMenuOpen = null)">
+                                        <div class="flex items-center gap-1.5 pr-3 py-1.5 cursor-pointer transition-colors"
+                                             :style="'padding-left:' + (24 + item.depth * 16) + 'px'"
+                                             onmouseover="this.parentElement.style.background='var(--color-bg-hover-subtle)'"
+                                             onmouseout="this.parentElement.style.background='transparent'">
+                                            {{-- Toggle arrow --}}
+                                            <div @click="toggleFolder(item.folder.id)" class="flex items-center gap-1.5 flex-1 min-w-0">
+                                                <svg class="w-2.5 h-2.5 flex-shrink-0 transition-transform duration-150"
+                                                     :style="isFolderExpanded(item.folder.id) ? 'transform:rotate(90deg); color:var(--color-text-muted-3)' : 'color:var(--color-border-input)'"
+                                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                                </svg>
+                                                <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-folder)" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                                                </svg>
+                                                <span x-text="item.folder.name" class="text-xs truncate flex-1" style="color:var(--color-text-muted-1)"></span>
                                             </div>
-                                        </template>
-                                        <div x-show="!(folder.requests || []).length"
-                                             class="pl-12 pr-3 py-1.5 text-[10px]" style="color:var(--color-border-input)">
-                                            Empty folder
+                                            {{-- Folder 3-dot menu button --}}
+                                            <div class="relative flex-shrink-0" @click.stop>
+                                                <button @click="toggleFolderMenu(item.folder.id)"
+                                                        class="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100"
+                                                        :class="folderMenuOpen === item.folder.id ? '!opacity-100' : ''"
+                                                        style="color:var(--color-text-muted-4);"
+                                                        onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-muted-4)'">
+                                                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                                    </svg>
+                                                </button>
+                                                {{-- Folder context menu --}}
+                                                <div x-show="folderMenuOpen === item.folder.id"
+                                                     x-cloak
+                                                     class="absolute right-0 top-full mt-1 w-44 rounded shadow-2xl z-50 py-1"
+                                                     style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                                                    <button @click="openNewFolderModal(item.collectionId, item.folder.id, item.folder.name)"
+                                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                            style="color:var(--color-text-primary)"
+                                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                                        </svg>
+                                                        Add Subfolder
+                                                    </button>
+                                                    <button @click="openRenameFolderModal(item.folder.id, item.collectionId, item.folder.name)"
+                                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                            style="color:var(--color-text-primary)"
+                                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                        </svg>
+                                                        Rename
+                                                    </button>
+                                                    <div style="border-top:1px solid var(--color-border-subtle); margin:4px 0;"></div>
+                                                    <button @click="deleteFolder(item.folder.id, item.collectionId)"
+                                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                            style="color:var(--color-danger)"
+                                                            onmouseover="this.style.background='var(--color-bg-danger-hover)'" onmouseout="this.style.background='transparent'">
+                                                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                        </svg>
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+                                </template>
+
                                 </div>
                             </template>
 
@@ -289,6 +333,88 @@
            @change="handleImportFile($event.target.files)"
            accept=".json,application/json"
            class="hidden">
+
+    {{-- New Folder Modal --}}
+    <div x-show="folderModal.open"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         style="background:rgba(0,0,0,0.6);"
+         @keydown.escape.window="folderModal.open = false">
+        <div class="w-80 rounded-lg shadow-2xl p-5"
+             style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);"
+             @click.stop>
+            <h3 class="text-sm font-semibold mb-1" style="color:var(--color-text-input)"
+                x-text="folderModal.parentFolderId ? 'New Subfolder' : 'New Folder'"></h3>
+            <p x-show="folderModal.parentFolderName"
+               class="text-[11px] mb-3 truncate"
+               style="color:var(--color-text-muted-4)"
+               x-text="'in ' + folderModal.parentFolderName"></p>
+            <div x-show="!folderModal.parentFolderName" class="mb-3"></div>
+            <input x-ref="newFolderNameInput"
+                   x-model="folderModal.name"
+                   @keydown.enter="createFolder()"
+                   type="text"
+                   placeholder="Folder name"
+                   class="w-full px-3 py-2 rounded text-sm outline-none"
+                   style="background:var(--color-bg-input); border:1px solid var(--color-border-input); color:var(--color-text-input);"
+                   x-init="$watch('folderModal.open', v => { if (v) $nextTick(() => $refs.newFolderNameInput && $refs.newFolderNameInput.focus()) })">
+            <div x-show="folderModal.error" x-cloak class="mt-2 text-[11px]" style="color:var(--color-danger)" x-text="folderModal.error"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="folderModal.open = false"
+                        class="px-3 py-1.5 rounded text-xs transition-colors"
+                        style="color:var(--color-text-muted-4); background:transparent;"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    Cancel
+                </button>
+                <button @click="createFolder()"
+                        :disabled="folderModal.loading || !folderModal.name.trim()"
+                        class="px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-50"
+                        style="background:var(--color-brand);"
+                        onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
+                    <span x-show="!folderModal.loading">Create</span>
+                    <span x-show="folderModal.loading">Creating…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Rename Folder Modal --}}
+    <div x-show="renameFolderModal.open"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         style="background:rgba(0,0,0,0.6);"
+         @keydown.escape.window="renameFolderModal.open = false">
+        <div class="w-80 rounded-lg shadow-2xl p-5"
+             style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);"
+             @click.stop>
+            <h3 class="text-sm font-semibold mb-4" style="color:var(--color-text-input)">Rename Folder</h3>
+            <input x-ref="renameFolderNameInput"
+                   x-model="renameFolderModal.name"
+                   @keydown.enter="saveRenameFolder()"
+                   type="text"
+                   placeholder="Folder name"
+                   class="w-full px-3 py-2 rounded text-sm outline-none"
+                   style="background:var(--color-bg-input); border:1px solid var(--color-border-input); color:var(--color-text-input);"
+                   x-init="$watch('renameFolderModal.open', v => { if (v) $nextTick(() => $refs.renameFolderNameInput && $refs.renameFolderNameInput.focus()) })">
+            <div x-show="renameFolderModal.error" x-cloak class="mt-2 text-[11px]" style="color:var(--color-danger)" x-text="renameFolderModal.error"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="renameFolderModal.open = false"
+                        class="px-3 py-1.5 rounded text-xs transition-colors"
+                        style="color:var(--color-text-muted-4); background:transparent;"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    Cancel
+                </button>
+                <button @click="saveRenameFolder()"
+                        :disabled="renameFolderModal.loading || !renameFolderModal.name.trim()"
+                        class="px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-50"
+                        style="background:var(--color-brand);"
+                        onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
+                    <span x-show="!renameFolderModal.loading">Save</span>
+                    <span x-show="renameFolderModal.loading">Saving…</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     {{-- New Collection Modal --}}
     <div x-show="newCollectionModal"

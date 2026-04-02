@@ -13,21 +13,21 @@ class FolderController extends Controller
 
     public function store(StoreFolderRequest $request, int $collection): JsonResponse
     {
-        $folder = $this->service->createFolder($collection, auth()->id(), $request->validated());
+        $folder = $this->service->createFolder($collection, $request->validated());
 
         return response()->json(['data' => $folder], 201);
     }
 
     public function update(UpdateFolderRequest $request, int $collection, int $folder): JsonResponse
     {
-        $updated = $this->service->updateFolder($folder, $collection, auth()->id(), $request->validated());
+        $updated = $this->service->updateFolder($folder, $collection, $request->validated());
 
         return response()->json(['data' => $updated]);
     }
 
     public function destroy(int $collection, int $folder): JsonResponse
     {
-        $this->service->deleteFolder($folder, $collection, auth()->id());
+        $this->service->deleteFolder($folder, $collection);
 
         return response()->json(['message' => 'Folder deleted.']);
     }

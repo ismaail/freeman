@@ -44,6 +44,11 @@ function workspace() {
         newCollectionLoading: false,
         newCollectionError: null,
 
+        // Folder modals
+        folderModal: { open: false, collectionId: null, parentFolderId: null, parentFolderName: null, name: '', loading: false, error: null },
+        renameFolderModal: { open: false, folderId: null, collectionId: null, name: '', loading: false, error: null },
+        folderMenuOpen: null,
+
         // Save-to-collection modal
         saveModal: {
             open: false,
@@ -52,6 +57,7 @@ function workspace() {
             folderId: null,
             saving: false,
             error: null,
+            path: [],   // [{id, name, type:'collection'|'folder'}] — browser nav stack
         },
 
         // Request being built
@@ -88,16 +94,26 @@ function workspace() {
             return this.environments.find(e => e.is_active) || null;
         },
 
-        get saveModalFolders() {
-            if (!this.saveModal.collectionId) return [];
+        // Items to show in the save-modal folder browser at the current path level.
+        get saveModalBrowserItems() {
+            if (!this.saveModal.path.length) {
+                // Root: show all collections
+                return this.collections.map(c => ({
+                    id: c.id, name: c.name, type: 'collection',
+                    hasChildren: (c.folders || []).some(f => (f.parent_folder_id ?? null) === null),
+                }));
+            }
             const col = this.collections.find(c => c.id == this.saveModal.collectionId);
-            if (!col || !col.folders) return [];
-            const flatten = (folders, prefix = '') =>
-                folders.flatMap(f => [
-                    { id: f.id, name: prefix + f.name },
-                    ...flatten(f.children || [], prefix + f.name + ' / '),
-                ]);
-            return flatten(col.folders);
+            if (!col) return [];
+            const last = this.saveModal.path[this.saveModal.path.length - 1];
+            const parentId = last.type === 'folder' ? last.id : null;
+            return (col.folders || [])
+                .filter(f => (f.parent_folder_id ?? null) == parentId)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(f => ({
+                    id: f.id, name: f.name, type: 'folder',
+                    hasChildren: (col.folders || []).some(cf => cf.parent_folder_id == f.id),
+                }));
         },
 
         get filledParamCount() {
@@ -282,7 +298,37 @@ function workspace() {
                 folderId: null,
                 saving: false,
                 error: null,
+                path: [],
             };
+        },
+
+        // Navigate into a collection or folder in the save-modal browser
+        saveModalNavigateInto(item) {
+            this.saveModal.path = [...this.saveModal.path, { id: item.id, name: item.name, type: item.type }];
+            if (item.type === 'collection') {
+                this.saveModal.collectionId = item.id;
+                this.saveModal.folderId = null;
+            } else {
+                this.saveModal.folderId = item.id;
+            }
+        },
+
+        // Navigate back to a specific breadcrumb index (-1 = all collections root)
+        saveModalNavigateTo(index) {
+            if (index < 0) {
+                this.saveModal.path = [];
+                this.saveModal.collectionId = null;
+                this.saveModal.folderId = null;
+            } else {
+                this.saveModal.path = this.saveModal.path.slice(0, index + 1);
+                const item = this.saveModal.path[index];
+                if (item.type === 'collection') {
+                    this.saveModal.collectionId = item.id;
+                    this.saveModal.folderId = null;
+                } else {
+                    this.saveModal.folderId = item.id;
+                }
+            }
         },
 
         async confirmSaveRequest() {
@@ -389,6 +435,148 @@ function workspace() {
 
         toggleCollectionMenu(id) {
             this.collectionMenuOpen = this.collectionMenuOpen === id ? null : id;
+        },
+
+        // ---- Folder tree (flat depth-first for sidebar rendering) ----
+        // The API returns all folders flat (with parent_folder_id). We build the
+        // display list here via a depth-first walk so Alpine can iterate a simple array.
+
+        flatCollectionTree(col) {
+            const rows      = [];
+            const allFolders = col.folders || [];
+            // Build a map: parentId → [child folders]
+            const childMap  = {};
+            for (const f of allFolders) {
+                const pid = f.parent_folder_id ?? null;
+                if (!childMap[pid]) childMap[pid] = [];
+                childMap[pid].push(f);
+            }
+            const walk = (parentId, depth) => {
+                const children = childMap[parentId] || [];
+                for (const folder of children) {
+                    rows.push({ type: 'folder', folder, depth, collectionId: col.id });
+                    if (this.isFolderExpanded(folder.id)) {
+                        for (const req of (folder.requests || [])) {
+                            rows.push({ type: 'request', req, depth: depth + 1 });
+                        }
+                        walk(folder.id, depth + 1);
+                    }
+                }
+            };
+            // Root-level requests first
+            for (const req of (col.requests || [])) {
+                rows.push({ type: 'request', req, depth: 0 });
+            }
+            // Then folders starting from root (parent_folder_id = null)
+            walk(null, 0);
+            return rows;
+        },
+
+        // ---- Folder context menu ----
+
+        toggleFolderMenu(id) {
+            this.folderMenuOpen = this.folderMenuOpen === id ? null : id;
+        },
+
+        // ---- Create folder ----
+
+        openNewFolderModal(collectionId, parentFolderId = null, parentFolderName = null) {
+            this.folderModal = { open: true, collectionId, parentFolderId, parentFolderName, name: '', loading: false, error: null };
+            this.collectionMenuOpen = null;
+            this.folderMenuOpen = null;
+        },
+
+        async createFolder() {
+            const name = this.folderModal.name.trim();
+            if (!name) return;
+            this.folderModal.loading = true;
+            this.folderModal.error = null;
+            const payload = { name };
+            if (this.folderModal.parentFolderId) payload.parent_folder_id = this.folderModal.parentFolderId;
+            try {
+                const res  = await fetch(`/collections/${this.folderModal.collectionId}/folders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':     'application/json',
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    this.folderModal.open = false;
+                    await this.loadCollections();
+                    this.expandedCollections = { ...this.expandedCollections, [this.folderModal.collectionId]: true };
+                    if (this.folderModal.parentFolderId) {
+                        this.expandedFolders = { ...this.expandedFolders, [this.folderModal.parentFolderId]: true };
+                    }
+                } else {
+                    this.folderModal.error = json.message || 'Could not create folder.';
+                }
+            } catch (e) {
+                this.folderModal.error = 'Network error.';
+            } finally {
+                this.folderModal.loading = false;
+            }
+        },
+
+        // ---- Rename folder ----
+
+        openRenameFolderModal(folderId, collectionId, currentName) {
+            this.renameFolderModal = { open: true, folderId, collectionId, name: currentName, loading: false, error: null };
+            this.folderMenuOpen = null;
+        },
+
+        async saveRenameFolder() {
+            const name = this.renameFolderModal.name.trim();
+            if (!name) return;
+            this.renameFolderModal.loading = true;
+            this.renameFolderModal.error = null;
+            try {
+                const res  = await fetch(`/collections/${this.renameFolderModal.collectionId}/folders/${this.renameFolderModal.folderId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type':     'application/json',
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ name }),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    this.renameFolderModal.open = false;
+                    await this.loadCollections();
+                } else {
+                    this.renameFolderModal.error = json.message || 'Could not rename folder.';
+                }
+            } catch (e) {
+                this.renameFolderModal.error = 'Network error.';
+            } finally {
+                this.renameFolderModal.loading = false;
+            }
+        },
+
+        // ---- Delete folder ----
+
+        async deleteFolder(folderId, collectionId) {
+            if (!confirm('Delete this folder and all its contents?')) return;
+            try {
+                await fetch(`/collections/${collectionId}/folders/${folderId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                this.folderMenuOpen = null;
+                await this.loadCollections();
+            } catch (e) {
+                console.error('deleteFolder:', e);
+            }
         },
 
         // ---- Export ----

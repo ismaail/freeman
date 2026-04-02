@@ -113,7 +113,7 @@ class CollectionController extends Controller
             'file' => ['required', 'file', 'mimes:json,txt', 'max:2048'],
         ]);
 
-        $contents = file_get_contents($request->file('file')->getRealPath());
+        $contents = file_get_contents($request->file('file')->getPathname());
         $data     = json_decode($contents, true);
 
         if (! is_array($data)) {
