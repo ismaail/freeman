@@ -1025,7 +1025,7 @@ function workspace() {
                     /(&lt;!--[\s\S]*?--&gt;)/g,
                     '<span class="xml-comment">$1</span>'
                 )
-                // Processing instructions  <?...?>
+                // Processing instructions (XML PI nodes)
                 .replace(
                     /(&lt;\?[\s\S]*?\?&gt;)/g,
                     '<span class="xml-bracket">$1</span>'
