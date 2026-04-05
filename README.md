@@ -15,6 +15,7 @@ No desktop install. No data leaves your network. Your team accesses it from any 
 - **Import / Export** — full Postman Collection v2.1 compatibility; migrate in seconds
 - **Auth helpers** — Bearer token, Basic auth, and API Key support built in
 - **Team accounts** — super admin creates accounts; no self-registration
+- **Shared collections** — all team members can view and edit collections
 - **CORS-free** — all requests are proxied server-side via Guzzle; no browser restrictions
 - **Rate limiting** — 60 requests/min per user on the run endpoint
 - **Self-contained** — SQLite database, no external services required
@@ -23,12 +24,15 @@ No desktop install. No data leaves your network. Your team accesses it from any 
 
 ## Requirements
 
-| Requirement | Minimum |
+| Requirement | Version |
 |---|---|
-| PHP | 8.2+ |
+| PHP | 8.2 or higher |
 | Composer | 2.x |
 | PHP extension: `pdo_sqlite` | required |
 | PHP extension: `openssl` | required |
+| PHP extension: `curl` | required |
+| PHP extension: `mbstring` | required |
+| PHP extension: `xml` | required |
 
 > No Node.js, no npm, no build step. Tailwind CSS and Alpine.js are loaded from CDN.
 
@@ -36,15 +40,21 @@ No desktop install. No data leaves your network. Your team accesses it from any 
 
 **Ubuntu / Debian**
 ```bash
-sudo apt install php-sqlite3
+sudo apt install php-sqlite3 php-curl php-mbstring php-xml
 ```
 
 **RHEL / Fedora**
 ```bash
-sudo dnf install php-pdo php-sqlite3
+sudo dnf install php-pdo php-sqlite3 php-curl php-mbstring php-xml
 ```
 
-**Windows** — enable `extension=pdo_sqlite` in your `php.ini`.
+**Windows** — enable the relevant extensions in your `php.ini`:
+```ini
+extension=pdo_sqlite
+extension=curl
+extension=mbstring
+extension=openssl
+```
 
 **macOS (Homebrew)** — extensions are bundled with the `php` formula.
 
@@ -59,23 +69,30 @@ git clone https://github.com/your-org/freeman.git
 cd freeman
 ```
 
-### 2. Run the install wizard
+### 2. Install PHP dependencies
+
+```bash
+composer install
+```
+
+> **Do this first.** The install wizard (`php artisan freeman:install`) will attempt to run `composer install` automatically, but on some servers (restricted PATH, missing `composer` in shell, etc.) this step can fail silently. Running it manually first avoids any issues.
+
+### 3. Run the install wizard
 
 ```bash
 php artisan freeman:install
 ```
 
-That's it. The wizard will automatically:
+The wizard will:
 
-1. Install PHP dependencies via Composer (if not already installed)
-2. Check all PHP extension requirements
-3. Copy `.env.example` → `.env`
-4. Generate a secure `APP_KEY`
-5. Create the SQLite database file
-6. Run all database migrations
-7. Prompt you to create your super admin account
+1. Check all PHP extension requirements
+2. Copy `.env.example` → `.env`
+3. Generate a secure `APP_KEY`
+4. Create the SQLite database file
+5. Run all database migrations
+6. Prompt you to create your super admin account
 
-### 3. Set your app URL
+### 4. Set your app URL
 
 Open `.env` and update:
 
@@ -83,7 +100,7 @@ Open `.env` and update:
 APP_URL=https://your-domain.com
 ```
 
-### 4. Start the server
+### 5. Start the server
 
 **Development**
 ```bash
@@ -161,11 +178,9 @@ Freeman uses the **Postman Collection v2.1** format for both import and export, 
 | Import / Export (Postman v2.1) | ✅ Done |
 | Auth helpers (Bearer / Basic / API Key) | ✅ Done |
 | Rate limiting on request execution | ✅ Done |
+| Shared collections (all team members) | ✅ Done |
 | `freeman:install` wizard | ✅ Done |
-| Environments & environment switching | 🔜 v2 |
-| Request history log | 🔜 v2 |
-| Pre-request & test scripts | 🔜 v2 |
-| Sharing collections between users | 🔜 v2 |
+| File upload support (multipart/form-data) | 🔜 Next |
 
 ---
 

@@ -17,25 +17,10 @@
         </button>
     </div>
 
-    {{-- Sidebar tab nav --}}
-    <div class="flex flex-shrink-0" style="border-bottom:1px solid var(--color-border-subtle);">
-        <button @click="sidebarTab = 'collections'"
-                :style="sidebarTab === 'collections' ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
-                class="flex-1 py-2.5 text-[10px] uppercase tracking-widest font-semibold transition-colors hover:text-gray-300">
-            Collections
-        </button>
-        <button @click="sidebarTab = 'environments'"
-                :style="sidebarTab === 'environments' ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
-                class="flex-1 py-2.5 text-[10px] uppercase tracking-widest font-semibold transition-colors hover:text-gray-300">
-            Envs
-        </button>
-    </div>
-
     {{-- Sidebar scrollable content --}}
     <div class="flex-1 overflow-y-auto">
 
-        {{-- ---- COLLECTIONS TAB ---- --}}
-        <div x-show="sidebarTab === 'collections'">
+        <div>
 
             {{-- Loading --}}
             <div x-show="collectionsLoading" class="flex items-center justify-center py-10">
@@ -289,38 +274,6 @@
                         </div>
                     </div>
                 </template>
-            </div>
-        </div>
-
-        {{-- ---- ENVIRONMENTS TAB ---- --}}
-        <div x-show="sidebarTab === 'environments'">
-            <template x-for="env in environments" :key="env.id">
-                <div class="flex items-center gap-3 px-4 py-2.5 transition-colors"
-                     style="border-bottom:1px solid var(--color-bg-hover-row);"
-                     onmouseover="this.style.background='var(--color-bg-hover-row)'" onmouseout="this.style.background='transparent'">
-                    <span class="w-2 h-2 rounded-full flex-shrink-0"
-                          :style="env.is_active ? 'background:var(--color-success)' : 'background:var(--color-border-menu)'"></span>
-                    <span x-text="env.name" class="text-xs flex-1 truncate" style="color:var(--color-text-secondary)"></span>
-                    <button x-show="!env.is_active"
-                            @click="activateEnvironment(env.id)"
-                            class="text-[10px] transition-colors flex-shrink-0"
-                            style="color:var(--color-text-muted-4)"
-                            onmouseover="this.style.color='var(--color-brand)'" onmouseout="this.style.color='var(--color-text-muted-4)'">
-                        Activate
-                    </button>
-                    <span x-show="env.is_active"
-                          class="text-[10px] font-semibold flex-shrink-0"
-                          style="color:var(--color-success)">
-                        Active
-                    </span>
-                </div>
-            </template>
-            <div x-show="environments.length === 0"
-                 class="flex flex-col items-center justify-center py-10 px-4 text-center">
-                <svg class="w-9 h-9 mb-3" style="color:var(--color-border-menu)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                </svg>
-                <p class="text-xs" style="color:var(--color-text-muted-5)">No environments</p>
             </div>
         </div>
 
