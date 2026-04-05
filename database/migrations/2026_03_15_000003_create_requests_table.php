@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->enum('method', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
-            $table->string('url');
+            $table->string('url')->nullable();
             $table->json('headers')->nullable();
             $table->enum('body_type', ['none', 'raw', 'form-data', 'x-www-form-urlencoded'])->nullable();
             $table->text('body')->nullable();
