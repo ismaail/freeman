@@ -81,7 +81,7 @@
     .var-field-wrap.vf-md .vf-back,
     .var-field-wrap.vf-md .vf-real { padding: 8px 12px; }
     /* Modifier: textarea (multi-line, px-3 py-2.5, line-height 1.6) */
-    .var-field-wrap.vf-textarea { min-height: 135px; }
+    .var-field-wrap.vf-textarea { min-height: 80px; }
     .var-field-wrap.vf-textarea .vf-back,
     .var-field-wrap.vf-textarea .vf-real {
         padding: 10px 12px;
@@ -90,7 +90,7 @@
         overflow-wrap: break-word;
         overflow-y: auto;
         resize: none;
-        height: 135px;
+        height: 100%;
     }
 
     /* ---------- URL variable marks ---------- */

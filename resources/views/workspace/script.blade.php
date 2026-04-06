@@ -9,6 +9,9 @@ function workspace() {
         userMenuOpen: false,
         envMenuOpen: false,
 
+        // Request/response split (percent for top panel, persisted in localStorage)
+        splitPct: parseFloat(localStorage.getItem('freeman_split_pct') || '42'),
+
         // Data
         collections: [],
         environments: [],
@@ -856,6 +859,22 @@ function workspace() {
         removeFormRow(i)  { this.currentRequest.body_form.splice(i, 1); },
 
         // ---- Style helpers ----
+
+        startSplitDrag(e) {
+            const container = this.$refs.splitContainer;
+            const onMove = (mv) => {
+                const rect = container.getBoundingClientRect();
+                const pct = ((mv.clientY - rect.top) / rect.height) * 100;
+                this.splitPct = Math.min(Math.max(pct, 15), 80);
+            };
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                localStorage.setItem('freeman_split_pct', this.splitPct.toFixed(1));
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        },
 
         methodColor(method) {
             return { GET: 'text-green-400', POST: 'text-yellow-400', PUT: 'text-blue-400', PATCH: 'text-purple-400', DELETE: 'text-red-400' }[method] || 'text-gray-400';

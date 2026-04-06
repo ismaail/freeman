@@ -1,5 +1,6 @@
-{{-- === REQUEST CONFIG (top 42%) === --}}
-<div class="flex flex-col overflow-hidden flex-shrink-0" style="height:42%; border-bottom:1px solid var(--color-border-subtle);">
+{{-- === REQUEST CONFIG (top panel, height driven by splitPct) === --}}
+<div class="flex flex-col overflow-hidden flex-shrink-0"
+     :style="'height:' + splitPct + '%; border-bottom:1px solid var(--color-border-subtle);'">
 
     {{-- Request tab bar --}}
     <div class="flex flex-shrink-0" style="background:var(--color-bg-surface); border-bottom:1px solid var(--color-border-subtle);">
@@ -24,11 +25,11 @@
         </template>
     </div>
 
-    {{-- Tab content (scrollable) --}}
-    <div class="flex-1 overflow-y-auto p-4">
+    {{-- Tab content --}}
+    <div class="flex-1 overflow-hidden flex flex-col">
 
         {{-- PARAMS --}}
-        <div x-show="requestTab === 'params'">
+        <div x-show="requestTab === 'params'" class="flex-1 overflow-y-auto p-4">
             <table class="w-full" style="border-collapse:collapse;">
                 <thead>
                     <tr class="text-[9px] uppercase tracking-widest" style="color:var(--color-border-input);">
@@ -88,7 +89,7 @@
         </div>
 
         {{-- HEADERS --}}
-        <div x-show="requestTab === 'headers'">
+        <div x-show="requestTab === 'headers'" class="flex-1 overflow-y-auto p-4">
             <table class="w-full" style="border-collapse:collapse;">
                 <thead>
                     <tr class="text-[9px] uppercase tracking-widest" style="color:var(--color-border-input);">
@@ -148,9 +149,10 @@
         </div>
 
         {{-- BODY --}}
-        <div x-show="requestTab === 'body'">
-            {{-- Body type selector --}}
-            <div class="flex gap-4 mb-4">
+        <div x-show="requestTab === 'body'" class="flex-1 flex flex-col overflow-hidden">
+
+            {{-- Body type selector (fixed height) --}}
+            <div class="flex gap-4 flex-shrink-0 px-4 pt-4 pb-2">
                 <template x-for="btype in ['none', 'raw', 'form-data', 'x-www-form-urlencoded']" :key="btype">
                     <label class="flex items-center gap-1.5 cursor-pointer select-none">
                         <input type="radio" x-model="currentRequest.body_type" :value="btype"
@@ -160,10 +162,10 @@
                 </template>
             </div>
 
-            {{-- Raw textarea --}}
-            <div x-show="currentRequest.body_type === 'raw'">
-                <div class="var-field-wrap vf-textarea w-full"
-                     style="background:var(--color-bg-body-input);"
+            {{-- Raw textarea — fills remaining vertical space --}}
+            <div x-show="currentRequest.body_type === 'raw'" class="flex-1 flex flex-col min-h-0 px-4 pb-4">
+                <div class="var-field-wrap vf-textarea w-full flex-1"
+                     style="background:var(--color-bg-body-input); min-height:0;"
                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                     <div class="vf-back response-body" x-html="highlightVars(currentRequest.body ?? '')"></div>
                     <textarea x-model="currentRequest.body"
@@ -176,8 +178,9 @@
                 </div>
             </div>
 
-            {{-- Form key-value body --}}
-            <div x-show="currentRequest.body_type === 'form-data' || currentRequest.body_type === 'x-www-form-urlencoded'">
+            {{-- Form key-value body (scrollable) --}}
+            <div x-show="currentRequest.body_type === 'form-data' || currentRequest.body_type === 'x-www-form-urlencoded'"
+                 class="flex-1 overflow-y-auto px-4 pb-4">
                 <table class="w-full" style="border-collapse:collapse;">
                     <thead>
                         <tr class="text-[9px] uppercase tracking-widest" style="color:var(--color-border-input);">
@@ -237,13 +240,14 @@
             </div>
 
             {{-- None --}}
-            <div x-show="currentRequest.body_type === 'none'">
+            <div x-show="currentRequest.body_type === 'none'" class="px-4 pb-4">
                 <p class="text-xs" style="color:var(--color-border-input);">This request has no body.</p>
             </div>
-        </div>
+
+        </div>{{-- end BODY tab --}}
 
         {{-- AUTH --}}
-        <div x-show="requestTab === 'auth'">
+        <div x-show="requestTab === 'auth'" class="flex-1 overflow-y-auto p-4">
             <div class="mb-4">
                 <label class="block text-[9px] uppercase tracking-widest mb-2" style="color:var(--color-text-muted-5);">Auth Type</label>
                 <select x-model="currentRequest.auth_type"
@@ -331,7 +335,7 @@
             <div x-show="currentRequest.auth_type === 'none'">
                 <p class="text-xs" style="color:var(--color-border-input);">No authentication for this request.</p>
             </div>
-        </div>
+        </div>{{-- end AUTH tab --}}
 
     </div>{{-- end tab content --}}
 </div>{{-- end request config --}}

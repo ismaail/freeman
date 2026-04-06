@@ -72,7 +72,14 @@
 </div>
 
 {{-- Request config + Response (vertical split) --}}
-<div class="flex-1 flex flex-col overflow-hidden" style="min-height:0;">
+<div x-ref="splitContainer" class="flex-1 flex flex-col overflow-hidden" style="min-height:0;">
     @include('workspace.request-config')
+    {{-- Draggable split handle --}}
+    <div class="flex-shrink-0 flex items-center justify-center cursor-row-resize select-none group"
+         style="height:6px; background:var(--color-border-subtle);"
+         @mousedown.prevent="startSplitDrag($event)">
+        <div class="rounded-full opacity-40 group-hover:opacity-80 transition-opacity"
+             style="width:32px; height:2px; background:var(--color-text-muted-4);"></div>
+    </div>
     @include('workspace.response-panel')
 </div>
