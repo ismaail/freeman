@@ -84,6 +84,9 @@ function workspace() {
         // Response
         response: null,
         isLoading: false,
+        responseViewMode: 'pretty',   // 'pretty' | 'raw'
+        responseForceType: 'auto',    // 'auto' | 'json' | 'xml' | 'html' | 'text'
+        responseCopied: false,
 
         // ---- Init ----
 
@@ -96,6 +99,11 @@ function workspace() {
 
         get activeEnvironment() {
             return this.environments.find(e => e.is_active) || null;
+        },
+
+        get responseDetectedType() {
+            if (!this.response?.response_headers) return 'text';
+            return this.detectContentType(this.response.response_headers);
         },
 
         // Items to show in the save-modal folder browser at the current path level.
@@ -940,17 +948,32 @@ function workspace() {
                 .find(([k]) => k.toLowerCase() === 'content-type');
             if (!entry) return 'text';
             const v = entry[1].toLowerCase();
-            if (v.includes('json'))                       return 'json';
-            if (v.includes('xml') || v.includes('html')) return 'xml';
+            if (v.includes('json'))        return 'json';
+            if (v.includes('html'))        return 'html';
+            if (v.includes('xml'))         return 'xml';
+            if (v.includes('javascript'))  return 'javascript';
             return 'text';
         },
 
         renderResponseBody(body, headers) {
             if (!body) return '<span style="color:var(--color-border-input);">— empty response —</span>';
-            const type = this.detectContentType(headers);
-            if (type === 'json') return this.highlightJson(body);
-            if (type === 'xml')  return this.highlightXml(body);
+            const type = this.responseForceType !== 'auto'
+                ? this.responseForceType
+                : this.detectContentType(headers);
+            if (this.responseViewMode === 'raw') return this.escHtml(body);
+            if (type === 'json')                    return this.highlightJson(body);
+            if (type === 'xml' || type === 'html')  return this.highlightXml(body);
+            if (type === 'javascript')              return this.highlightJsEditor(body);
             return this.escHtml(body);
+        },
+
+        async copyResponseBody() {
+            if (!this.response?.response_body) return;
+            try {
+                await navigator.clipboard.writeText(this.response.response_body);
+                this.responseCopied = true;
+                setTimeout(() => { this.responseCopied = false; }, 2000);
+            } catch {}
         },
 
         // Escape HTML entities in a raw string
@@ -959,6 +982,126 @@ function workspace() {
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
+        },
+
+        // Dispatcher for body editor syntax highlighting (no reformatting — preserves alignment)
+        highlightBodyContent(text) {
+            if (!text) return '';
+            const type = this.currentRequest.raw_body_type;
+            if (type === 'json')                    return this.highlightJsonEditor(text);
+            if (type === 'xml' || type === 'html')  return this.highlightXmlEditor(text);
+            if (type === 'javascript')              return this.highlightJsEditor(text);
+            return this.highlightVars(text);  // plain text — still show var marks
+        },
+
+        // JSON coloriser for the body editor — character-level tokeniser, NO reformatting
+        highlightJsonEditor(body) {
+            if (!body) return '';
+            const len = body.length;
+            let html = '';
+            let i = 0;
+            while (i < len) {
+                const ch = body[i];
+                if (ch === '"') {
+                    let j = i + 1;
+                    while (j < len) {
+                        if (body[j] === '\\') { j += 2; continue; }
+                        if (body[j] === '"')  { j++; break; }
+                        j++;
+                    }
+                    const token = body.slice(i, j);
+                    let k = j;
+                    while (k < len && (body[k] === ' ' || body[k] === '\t' || body[k] === '\n' || body[k] === '\r')) k++;
+                    const isKey = body[k] === ':';
+                    html += isKey
+                        ? `<span class="json-key">${this.escHtml(token)}</span>`
+                        : `<span class="json-str">${this.escHtml(token)}</span>`;
+                    i = j;
+                } else if (body.startsWith('true', i)) {
+                    html += '<span class="json-bool">true</span>';  i += 4;
+                } else if (body.startsWith('false', i)) {
+                    html += '<span class="json-bool">false</span>'; i += 5;
+                } else if (body.startsWith('null', i)) {
+                    html += '<span class="json-null">null</span>';  i += 4;
+                } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+                    let j = i;
+                    if (body[j] === '-') j++;
+                    while (j < len && body[j] >= '0' && body[j] <= '9') j++;
+                    if (j < len && body[j] === '.') {
+                        j++;
+                        while (j < len && body[j] >= '0' && body[j] <= '9') j++;
+                    }
+                    if (j < len && (body[j] === 'e' || body[j] === 'E')) {
+                        j++;
+                        if (j < len && (body[j] === '+' || body[j] === '-')) j++;
+                        while (j < len && body[j] >= '0' && body[j] <= '9') j++;
+                    }
+                    html += `<span class="json-num">${body.slice(i, j)}</span>`;
+                    i = j;
+                } else {
+                    html += this.escHtml(ch);
+                    i++;
+                }
+            }
+            return html;
+        },
+
+        // XML/HTML coloriser for the body editor — colorise only, NO indentation reformatting
+        highlightXmlEditor(body) {
+            if (!body) return '';
+            const esc = this.escHtml(body);
+            return esc
+                .replace(/(&lt;!--[\s\S]*?--&gt;)/g,
+                    '<span class="xml-comment">$1</span>')
+                .replace(/(&lt;\?[\s\S]*?\?&gt;)/g,
+                    '<span class="xml-bracket">$1</span>')
+                .replace(
+                    /(&lt;\/?)([\w][\w:.-]*)((?:[^&]|&(?!gt;))*?)(\/?&gt;)/g,
+                    (_, open, tag, attrs, close) => {
+                        const coloredAttrs = attrs
+                            .replace(/([\w][\w:.-]*)=/g, '<span class="xml-attr">$1</span>=')
+                            .replace(/=("(?:[^"])*")/g, '=<span class="xml-val">$1</span>');
+                        return '<span class="xml-bracket">' + open + '</span>'
+                             + '<span class="xml-tag">'     + tag  + '</span>'
+                             + coloredAttrs
+                             + '<span class="xml-bracket">' + close + '</span>';
+                    }
+                );
+        },
+
+        // JavaScript coloriser for the body editor — highlights comments only (safe, no false positives)
+        highlightJsEditor(body) {
+            if (!body) return '';
+            const esc = this.escHtml(body);
+            return esc
+                .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="xml-comment">$1</span>')
+                .replace(/(\/\/[^\n]*)/g,        '<span class="xml-comment">$1</span>');
+        },
+
+        // Pretty-print the raw body in-place (updates currentRequest.body)
+        formatBody() {
+            const type = this.currentRequest.raw_body_type;
+            const src  = this.currentRequest.body ?? '';
+            if (type === 'json') {
+                try { this.currentRequest.body = JSON.stringify(JSON.parse(src), null, 2); } catch {}
+            } else if (type === 'xml' || type === 'html') {
+                try {
+                    let depth = 0;
+                    this.currentRequest.body = src
+                        .replace(/>\s*</g, '>\n<')
+                        .split('\n')
+                        .map(raw => {
+                            const line = raw.trim();
+                            if (!line) return null;
+                            if (/^<\//.test(line) || /^-->/.test(line)) depth = Math.max(0, depth - 1);
+                            const out = '  '.repeat(depth) + line;
+                            if (/^<[^/?!]/.test(line) && !line.endsWith('/>') && !/<\//.test(line)) depth++;
+                            return out;
+                        })
+                        .filter(l => l !== null)
+                        .join('\n');
+                } catch {}
+            }
         },
 
         // JSON syntax highlight — character-level tokeniser (no double-wrap issues)

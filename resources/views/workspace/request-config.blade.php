@@ -194,6 +194,20 @@
                     <option value="xml">XML</option>
                     <option value="html">HTML</option>
                 </select>
+
+                {{-- Format button — only for types that support prettifying --}}
+                <button x-show="currentRequest.body_type === 'raw' && ['json','xml','html'].includes(currentRequest.raw_body_type)"
+                        @click="formatBody()"
+                        title="Prettify / format body"
+                        class="ml-2 flex items-center gap-1 text-[10px] rounded px-2 py-0.5 transition-colors font-medium"
+                        style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-3);"
+                        onmouseover="this.style.borderColor='var(--color-border-input)';this.style.color='var(--color-text-muted-1)'"
+                        onmouseout="this.style.borderColor='var(--color-border-subtle)';this.style.color='var(--color-text-muted-3)'">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h8m-8 6h16"/>
+                    </svg>
+                    Format
+                </button>
             </div>
 
             {{-- Raw textarea — fills remaining vertical space --}}
@@ -201,7 +215,7 @@
                 <div class="var-field-wrap vf-textarea w-full flex-1"
                      style="background:var(--color-bg-body-input); min-height:0;"
                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
-                    <div class="vf-back response-body" x-html="highlightVars(currentRequest.body ?? '')"></div>
+                    <div class="vf-back response-body" x-html="highlightBodyContent(currentRequest.body ?? '')"></div>
                     <textarea x-model="currentRequest.body"
                               placeholder='{"key": "value"}'
                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"

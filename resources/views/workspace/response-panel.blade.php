@@ -72,17 +72,117 @@
             </div>
         </div>
 
-        {{-- Response tabs --}}
-        <div class="flex flex-shrink-0" style="background:var(--color-bg-surface); border-bottom:1px solid var(--color-border-subtle);">
+        {{-- Tab bar + inline body controls --}}
+        <div class="flex items-center flex-shrink-0"
+             style="background:var(--color-bg-surface); border-bottom:1px solid var(--color-border-subtle);">
+
+            {{-- Body / Headers tabs --}}
             <button @click="responseTab = 'body'"
                     :style="responseTab === 'body' ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
-                    class="px-5 py-2 text-[10px] uppercase tracking-widest font-semibold transition-colors">Body</button>
+                    class="px-5 py-2 text-[10px] uppercase tracking-widest font-semibold transition-colors flex-shrink-0">Body</button>
             <button @click="responseTab = 'headers'"
                     :style="responseTab === 'headers' ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
-                    class="px-5 py-2 text-[10px] uppercase tracking-widest font-semibold transition-colors">Headers</button>
+                    class="px-5 py-2 text-[10px] uppercase tracking-widest font-semibold transition-colors flex-shrink-0">Headers</button>
+
+            {{-- Body view controls — always rendered, hidden via opacity/pointer-events when not on body tab --}}
+            <div class="ml-auto flex items-center gap-2 pr-3"
+                 :style="responseTab === 'body' ? 'opacity:1; pointer-events:auto;' : 'opacity:0; pointer-events:none;'">
+
+                {{-- Pretty / Raw pill --}}
+                <div class="flex rounded overflow-hidden"
+                     style="border:1px solid var(--color-border-subtle);">
+                    <button @click="responseViewMode = 'pretty'"
+                            class="px-2.5 py-1 text-[10px] font-medium transition-colors"
+                            :style="responseViewMode === 'pretty'
+                                ? 'background:var(--color-bg-elevated); color:var(--color-text-muted-1);'
+                                : 'color:var(--color-text-muted-5);'">Pretty</button>
+                    <button @click="responseViewMode = 'raw'"
+                            class="px-2.5 py-1 text-[10px] font-medium transition-colors"
+                            style="border-left:1px solid var(--color-border-subtle);"
+                            :style="responseViewMode === 'raw'
+                                ? 'background:var(--color-bg-elevated); color:var(--color-text-muted-1);'
+                                : 'color:var(--color-text-muted-5);'">Raw</button>
+                </div>
+
+                {{-- Format dropdown button (Postman-style) --}}
+                <div class="relative" x-data="{ fmtOpen: false }">
+                    <button @click="fmtOpen = !fmtOpen"
+                            class="flex items-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium transition-colors"
+                            style="border:1px solid var(--color-border-subtle); color:var(--color-text-muted-2); background:var(--color-bg-base);"
+                            onmouseover="this.style.borderColor='var(--color-border-input)';this.style.color='var(--color-text-muted-1)'"
+                            onmouseout="this.style.borderColor='var(--color-border-subtle)';this.style.color='var(--color-text-muted-2)'">
+                        {{-- Icon changes per format --}}
+                        <span class="font-mono text-[9px] font-bold leading-none"
+                              style="color:var(--color-brand);"
+                              x-text="({'json':'{ }','xml':'< >','html':'< >','javascript':'JS','text':'Tx','auto':({'json':'{ }','xml':'< >','html':'< >','javascript':'JS','text':'Tx'})[responseDetectedType] ?? '{ }'})[responseForceType]"></span>
+                        <span x-text="responseForceType === 'auto' ? responseDetectedType.toUpperCase() : responseForceType.toUpperCase()"></span>
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    {{-- Dropdown menu --}}
+                    <div x-show="fmtOpen"
+                         x-cloak
+                         @click.outside="fmtOpen = false"
+                         class="absolute right-0 z-50 rounded-md py-1 min-w-[130px]"
+                         style="top:calc(100% + 4px); background:var(--color-bg-elevated); border:1px solid var(--color-border-menu); box-shadow:0 8px 24px rgba(0,0,0,.45);">
+
+                        <p class="px-3 pt-1 pb-1.5 text-[9px] uppercase tracking-widest"
+                           style="color:var(--color-text-muted-5);">View as</p>
+
+                        <template x-for="opt in [
+                            { value:'auto',       icon:'◎',   label:'Auto detect' },
+                            { value:'json',       icon:'{ }', label:'JSON' },
+                            { value:'xml',        icon:'< >', label:'XML' },
+                            { value:'html',       icon:'< >', label:'HTML' },
+                            { value:'javascript', icon:'JS',  label:'JavaScript' },
+                            { value:'text',       icon:'Tx',  label:'Text' }
+                        ]" :key="opt.value">
+                            <button @click="responseForceType = opt.value; fmtOpen = false"
+                                    class="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors text-left"
+                                    :style="responseForceType === opt.value
+                                        ? 'color:var(--color-brand); background:var(--color-brand-tint-bg);'
+                                        : 'color:var(--color-text-muted-2);'"
+                                    onmouseover="if(this.dataset.active!=='1') this.style.background='var(--color-bg-hover-row)'"
+                                    onmouseout="if(this.dataset.active!=='1') this.style.background=''"
+                                    :data-active="responseForceType === opt.value ? '1' : '0'">
+                                <span class="font-mono text-[9px] font-bold w-5 text-center leading-none"
+                                      style="color:var(--color-brand); opacity:0.7;" x-text="opt.icon"></span>
+                                <span x-text="opt.label"></span>
+                                <svg x-show="responseForceType === opt.value"
+                                     class="w-3 h-3 ml-auto" fill="none" viewBox="0 0 24 24"
+                                     stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                {{-- Copy button --}}
+                <button @click="copyResponseBody()"
+                        class="flex items-center gap-1.5 text-[10px] font-medium transition-colors"
+                        :style="responseCopied ? 'color:var(--color-success)' : 'color:var(--color-text-muted-4)'"
+                        onmouseover="if(!this.dataset.copied) this.style.color='var(--color-text-muted-1)'"
+                        onmouseout="if(!this.dataset.copied) this.style.color='var(--color-text-muted-4)'"
+                        :data-copied="responseCopied ? '1' : ''">
+                    <template x-if="!responseCopied">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </template>
+                    <template x-if="responseCopied">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </template>
+                    <span x-text="responseCopied ? 'Copied!' : 'Copy'"></span>
+                </button>
+            </div>
         </div>
 
-        {{-- Response body --}}
+        {{-- Response body / headers content --}}
         <div class="flex-1 overflow-y-auto">
             {{-- Body tab --}}
             <div x-show="responseTab === 'body'">
