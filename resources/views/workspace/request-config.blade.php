@@ -219,6 +219,12 @@
                     <textarea x-model="currentRequest.body"
                               placeholder='{"key": "value"}'
                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                              @keydown.tab.prevent="
+                                  const s = $el.selectionStart, e = $el.selectionEnd;
+                                  $el.value = $el.value.slice(0, s) + '  ' + $el.value.slice(e);
+                                  $el.selectionStart = $el.selectionEnd = s + 2;
+                                  $el.dispatchEvent(new Event('input', { bubbles: true }));
+                              "
                               class="vf-real focus:outline-none"
                               onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                               onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"

@@ -93,6 +93,14 @@ function workspace() {
         init() {
             this.loadCollections();
             this.loadEnvironments();
+
+            // Ctrl+S → Save request (prevent browser "Save page" dialog)
+            window.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    this.saveRequest();
+                }
+            });
         },
 
         // ---- Computed ----
