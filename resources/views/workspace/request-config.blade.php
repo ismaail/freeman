@@ -100,6 +100,28 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {{-- Auto-generated Content-Type row (raw body only, hidden if user set one manually) --}}
+                    <tr x-show="currentRequest.body_type === 'raw' && !currentRequest.headers.some(h => h.enabled && h.key.toLowerCase() === 'content-type')">
+                        <td class="pr-2 py-0.5 w-5">
+                            <input type="checkbox" checked disabled class="w-3 h-3 opacity-30" style="accent-color:var(--color-brand);"/>
+                        </td>
+                        <td class="pr-1.5 py-0.5">
+                            <div class="w-full rounded px-2.5 py-1.5 text-xs font-mono"
+                                 style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-4); opacity:0.6;">
+                                Content-Type
+                            </div>
+                        </td>
+                        <td class="py-0.5">
+                            <div class="w-full rounded px-2.5 py-1.5 text-xs font-mono flex items-center gap-2"
+                                 style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-4); opacity:0.6;">
+                                <span x-text="({'text':'text/plain','json':'application/json','javascript':'application/javascript','xml':'application/xml','html':'text/html'})[currentRequest.raw_body_type] ?? 'application/json'"></span>
+                                <span class="ml-auto text-[9px] px-1.5 py-px rounded font-semibold uppercase tracking-wider"
+                                      style="background:var(--color-brand-tint-badge); color:var(--color-brand); opacity:1;">auto</span>
+                            </div>
+                        </td>
+                        <td class="pl-1.5 py-0.5 w-5"></td>
+                    </tr>
+
                     <template x-for="(h, i) in currentRequest.headers" :key="'h'+i">
                         <tr class="kv-row">
                             <td class="pr-2 py-0.5 w-5">
@@ -152,7 +174,7 @@
         <div x-show="requestTab === 'body'" class="flex-1 flex flex-col overflow-hidden">
 
             {{-- Body type selector (fixed height) --}}
-            <div class="flex gap-4 flex-shrink-0 px-4 pt-4 pb-2">
+            <div class="flex items-center gap-4 flex-shrink-0 px-4 pt-4 pb-2">
                 <template x-for="btype in ['none', 'raw', 'form-data', 'x-www-form-urlencoded']" :key="btype">
                     <label class="flex items-center gap-1.5 cursor-pointer select-none">
                         <input type="radio" x-model="currentRequest.body_type" :value="btype"
@@ -160,6 +182,18 @@
                         <span x-text="btype" class="text-xs capitalize" style="color:var(--color-text-muted-2);"></span>
                     </label>
                 </template>
+
+                {{-- Raw content-type picker — only shown when raw is selected --}}
+                <select x-show="currentRequest.body_type === 'raw'"
+                        x-model="currentRequest.raw_body_type"
+                        class="ml-1 text-xs rounded px-2 py-0.5 cursor-pointer focus:outline-none"
+                        style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-2);">
+                    <option value="text">Text</option>
+                    <option value="json">JSON</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="xml">XML</option>
+                    <option value="html">HTML</option>
+                </select>
             </div>
 
             {{-- Raw textarea — fills remaining vertical space --}}

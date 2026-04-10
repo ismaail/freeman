@@ -71,6 +71,7 @@ function workspace() {
             params:    [{ key: '', value: '', enabled: true }],
             headers:   [{ key: '', value: '', enabled: true }],
             body_type: 'none',
+            raw_body_type: 'json',
             body: '',
             body_form: [{ key: '', value: '', enabled: true }],
             auth_type: 'none',
@@ -177,6 +178,7 @@ function workspace() {
                 params:    [{ key: '', value: '', enabled: true }],
                 headers:   [{ key: '', value: '', enabled: true }],
                 body_type: 'none',
+                raw_body_type: 'json',
                 body: '',
                 body_form: [{ key: '', value: '', enabled: true }],
                 auth_type: 'none',
@@ -219,8 +221,9 @@ function workspace() {
                     headers:   Array.isArray(d.headers) && d.headers.length
                                    ? d.headers
                                    : [{ key: '', value: '', enabled: true }],
-                    body_type: d.body_type || 'none',
-                    body:      d.body      || '',
+                    body_type:     d.body_type     || 'none',
+                    raw_body_type: d.raw_body_type || 'json',
+                    body:          d.body          || '',
                     body_form: [{ key: '', value: '', enabled: true }],
                     auth_type: d.auth_type || 'none',
                     auth_data: {
@@ -259,10 +262,21 @@ function workspace() {
                 body = JSON.stringify(this.currentRequest.body_form.filter(r => r.key.trim()));
             }
 
+            // Build effective headers — inject Content-Type for raw body if not already set
+            let effectiveHeaders = this.currentRequest.headers.filter(h => h.key.trim());
+            if (this.currentRequest.body_type === 'raw') {
+                const hasContentType = effectiveHeaders.some(h => h.key.toLowerCase() === 'content-type');
+                if (!hasContentType) {
+                    const ctMap = { text: 'text/plain', json: 'application/json', javascript: 'application/javascript', xml: 'application/xml', html: 'text/html' };
+                    const ct = ctMap[this.currentRequest.raw_body_type] ?? 'application/json';
+                    effectiveHeaders = [{ key: 'Content-Type', value: ct, enabled: true }, ...effectiveHeaders];
+                }
+            }
+
             const payload = {
                 method:        this.currentRequest.method,
                 url,
-                headers:       this.currentRequest.headers.filter(h => h.key.trim()),
+                headers:       effectiveHeaders,
                 body_type:     this.currentRequest.body_type,
                 body,
                 auth_type:     this.currentRequest.auth_type,
@@ -357,6 +371,7 @@ function workspace() {
                         folder_id:     this.saveModal.folderId || null,
                         headers:       this.currentRequest.headers.filter(h => h.key.trim()),
                         body_type:     this.currentRequest.body_type,
+                        raw_body_type: this.currentRequest.raw_body_type,
                         body:          this.currentRequest.body,
                         auth_type:     this.currentRequest.auth_type,
                         auth_data:     this.currentRequest.auth_data,
@@ -397,10 +412,11 @@ function workspace() {
                         name:      this.currentRequest.name,
                         method:    this.currentRequest.method,
                         url:       this.currentRequest.url,
-                        headers:   this.currentRequest.headers.filter(h => h.key.trim()),
-                        body_type: this.currentRequest.body_type,
-                        body:      this.currentRequest.body,
-                        auth_type: this.currentRequest.auth_type,
+                        headers:       this.currentRequest.headers.filter(h => h.key.trim()),
+                        body_type:     this.currentRequest.body_type,
+                        raw_body_type: this.currentRequest.raw_body_type,
+                        body:          this.currentRequest.body,
+                        auth_type:     this.currentRequest.auth_type,
                         auth_data: this.currentRequest.auth_data,
                     }),
                 });

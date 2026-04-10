@@ -17,6 +17,7 @@ class Request extends Model
         'url',
         'headers',
         'body_type',
+        'raw_body_type',
         'body',
         'auth_type',
         'auth_data',

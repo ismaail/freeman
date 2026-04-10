@@ -25,6 +25,7 @@ class UpdateRequestRequest extends FormRequest
             'headers.*.value'   => ['nullable', 'string', 'max:1000'],
             'headers.*.enabled' => ['nullable', 'boolean'],
             'body_type'     => ['nullable', Rule::in(['none', 'raw', 'form-data', 'x-www-form-urlencoded'])],
+            'raw_body_type' => ['nullable', Rule::in(['text', 'json', 'javascript', 'xml', 'html'])],
             'body'          => ['nullable', 'string'],
             'auth_type'     => ['nullable', Rule::in(['none', 'bearer', 'basic', 'api_key'])],
             'auth_data'     => ['nullable', 'array'],
