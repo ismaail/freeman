@@ -50,6 +50,7 @@ function workspace() {
         // Folder modals
         folderModal: { open: false, collectionId: null, parentFolderId: null, parentFolderName: null, name: '', loading: false, error: null },
         renameFolderModal: { open: false, folderId: null, collectionId: null, name: '', loading: false, error: null },
+        renameCollectionModal: { open: false, collectionId: null, name: '', loading: false, error: null },
         folderMenuOpen: null,
 
         // Save-to-collection modal
@@ -650,6 +651,43 @@ function workspace() {
                 this.newCollectionError = 'Network error.';
             } finally {
                 this.newCollectionLoading = false;
+            }
+        },
+
+        // ---- Rename collection ----
+
+        openRenameCollectionModal(collectionId, currentName) {
+            this.renameCollectionModal = { open: true, collectionId, name: currentName, loading: false, error: null };
+            this.collectionMenuOpen = null;
+        },
+
+        async saveRenameCollection() {
+            const name = this.renameCollectionModal.name.trim();
+            if (!name) return;
+            this.renameCollectionModal.loading = true;
+            this.renameCollectionModal.error = null;
+            try {
+                const res  = await fetch(`/collections/${this.renameCollectionModal.collectionId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type':     'application/json',
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ name }),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    this.renameCollectionModal.open = false;
+                    await this.loadCollections();
+                } else {
+                    this.renameCollectionModal.error = json.message || 'Could not rename collection.';
+                }
+            } catch (e) {
+                this.renameCollectionModal.error = 'Network error.';
+            } finally {
+                this.renameCollectionModal.loading = false;
             }
         },
 

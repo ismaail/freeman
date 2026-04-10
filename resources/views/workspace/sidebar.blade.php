@@ -138,6 +138,15 @@
                                         </svg>
                                         Add Folder
                                     </button>
+                                    <button @click="openRenameCollectionModal(col.id, col.name)"
+                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                            style="color:var(--color-text-primary)"
+                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                        </svg>
+                                        Rename
+                                    </button>
                                     <button @click="openCollectionVariables(col.id, col.name); collectionMenuOpen = null"
                                             class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
                                             style="color:var(--color-text-primary)"
@@ -364,6 +373,44 @@
                         onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
                     <span x-show="!renameFolderModal.loading">Save</span>
                     <span x-show="renameFolderModal.loading">Saving…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Rename Collection Modal --}}
+    <div x-show="renameCollectionModal.open"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         style="background:rgba(0,0,0,0.6);"
+         @keydown.escape.window="renameCollectionModal.open = false">
+        <div class="w-80 rounded-lg shadow-2xl p-5"
+             style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);"
+             @click.stop>
+            <h3 class="text-sm font-semibold mb-4" style="color:var(--color-text-input)">Rename Collection</h3>
+            <input x-ref="renameCollectionNameInput"
+                   x-model="renameCollectionModal.name"
+                   @keydown.enter="saveRenameCollection()"
+                   type="text"
+                   placeholder="Collection name"
+                   class="w-full px-3 py-2 rounded text-sm outline-none"
+                   style="background:var(--color-bg-input); border:1px solid var(--color-border-input); color:var(--color-text-input);"
+                   x-init="$watch('renameCollectionModal.open', v => { if (v) $nextTick(() => $refs.renameCollectionNameInput && $refs.renameCollectionNameInput.focus()) })">
+            <div x-show="renameCollectionModal.error" x-cloak class="mt-2 text-[11px]" style="color:var(--color-danger)" x-text="renameCollectionModal.error"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="renameCollectionModal.open = false"
+                        class="px-3 py-1.5 rounded text-xs transition-colors"
+                        style="color:var(--color-text-muted-4); background:transparent;"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    Cancel
+                </button>
+                <button @click="saveRenameCollection()"
+                        :disabled="renameCollectionModal.loading || !renameCollectionModal.name.trim()"
+                        class="px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-50"
+                        style="background:var(--color-brand);"
+                        onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
+                    <span x-show="!renameCollectionModal.loading">Save</span>
+                    <span x-show="renameCollectionModal.loading">Saving…</span>
                 </button>
             </div>
         </div>
