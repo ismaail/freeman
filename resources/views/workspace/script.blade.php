@@ -277,9 +277,10 @@ function workspace() {
 
             // Create placeholder tab immediately so the chip appears while loading
             const tab = this.blankTab();
+            const tabId = tab.id;
             tab.requestId = requestId;
             this.tabs.push(tab);
-            this.activeTabId = tab.id;
+            this.activeTabId = tabId;
 
             try {
                 const res  = await fetch(`/requests/${requestId}`, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
@@ -287,11 +288,16 @@ function workspace() {
                 const d    = json.data;
                 const ad   = d.auth_data || {};
 
+                // Re-acquire the reactive proxy of this tab (the local `tab` var is the raw object,
+                // not Alpine's proxy — mutations to it won't trigger re-renders).
+                const liveTab = this.tabs.find(t => t.id === tabId);
+                if (!liveTab) return; // Tab was closed while loading
+
                 if (d.collection_id) {
-                    await this.loadCollectionVarsForTab(tab, d.collection_id);
+                    await this.loadCollectionVarsForTab(liveTab, d.collection_id);
                 }
 
-                tab.request = {
+                liveTab.request = {
                     collection_id: d.collection_id || null,
                     name:          d.name          || 'Untitled',
                     method:        d.method        || 'GET',
@@ -314,13 +320,13 @@ function workspace() {
                         in:       ad.in       || 'header',
                     },
                 };
-                tab.savedSnapshot = JSON.stringify(tab.request);
-                tab.isDirty       = false;
+                liveTab.savedSnapshot = JSON.stringify(liveTab.request);
+                liveTab.isDirty       = false;
                 this.persistTabs();
             } catch (e) {
                 console.error('openRequest:', e);
-                this.tabs = this.tabs.filter(t => t.id !== tab.id);
-                if (this.activeTabId === tab.id) {
+                this.tabs = this.tabs.filter(t => t.id !== tabId);
+                if (this.activeTabId === tabId) {
                     this.activeTabId = this.tabs[this.tabs.length - 1]?.id ?? null;
                 }
             }
