@@ -190,10 +190,10 @@
                                 <template x-if="item.type === 'request'">
                                     <div @click="openRequest(item.req.id)"
                                          class="flex items-center gap-2 pr-3 py-1.5 cursor-pointer transition-colors"
-                                         :style="'padding-left:' + (32 + item.depth * 16) + 'px;' + (activeRequestId === item.req.id ? 'background:var(--color-bg-active-item)' : '')"
+                                         :style="'padding-left:' + (32 + item.depth * 16) + 'px;' + (activeTab?.requestId === item.req.id ? 'background:var(--color-bg-active-item)' : '')"
                                          onmouseover="if(this.getAttribute('data-active')!=='1') this.style.background='var(--color-bg-hover-subtle)'"
                                          onmouseout="if(this.getAttribute('data-active')!=='1') this.style.background=''"
-                                         :data-active="activeRequestId === item.req.id ? '1' : '0'">
+                                         :data-active="activeTab?.requestId === item.req.id ? '1' : '0'">
                                         <span :class="methodColor(item.req.method)"
                                               class="text-[9px] font-bold font-mono flex-shrink-0"
                                               style="width:36px; text-align:right"

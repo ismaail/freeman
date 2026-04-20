@@ -5,14 +5,13 @@
     {{-- Request tab bar --}}
     <div class="flex flex-shrink-0" style="background:var(--color-bg-surface); border-bottom:1px solid var(--color-border-subtle);">
         <template x-for="tab in [{id:'params', label:'Params'}, {id:'headers', label:'Headers'}, {id:'body', label:'Body'}, {id:'auth', label:'Auth'}]" :key="tab.id">
-            <button @click="requestTab = tab.id"
+            <button @click="activeTab.requestTab = tab.id"
                     class="relative px-5 py-2.5 text-[10px] uppercase tracking-widest font-semibold transition-colors"
-                    :style="requestTab === tab.id ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
+                    :style="activeTab.requestTab === tab.id ? 'color:#fff; border-bottom:2px solid var(--color-brand);' : 'color:var(--color-text-muted-4); border-bottom:2px solid transparent;'"
                     onmouseover="if(this.getAttribute('data-act')!=='1') this.style.color='var(--color-text-muted-1)'"
                     onmouseout="if(this.getAttribute('data-act')!=='1') this.style.color='var(--color-text-muted-4)'"
-                    :data-act="requestTab === tab.id ? '1' : '0'">
+                    :data-act="activeTab.requestTab === tab.id ? '1' : '0'">
                 <span x-text="tab.label"></span>
-                {{-- Badge for filled headers --}}
                 <span x-show="tab.id === 'headers' && filledHeaderCount > 0"
                       x-text="filledHeaderCount"
                       class="ml-1.5 px-1.5 py-px rounded-full text-[8px] font-bold"
@@ -29,7 +28,7 @@
     <div class="flex-1 overflow-hidden flex flex-col">
 
         {{-- PARAMS --}}
-        <div x-show="requestTab === 'params'" class="flex-1 overflow-y-auto p-4">
+        <div x-show="activeTab.requestTab === 'params'" class="flex-1 overflow-y-auto p-4">
             <table class="w-full" style="border-collapse:collapse;">
                 <thead>
                     <tr class="text-[9px] uppercase tracking-widest" style="color:var(--color-border-input);">
@@ -40,14 +39,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-for="(p, i) in currentRequest.params" :key="'p'+i">
+                    <template x-for="(p, i) in activeTab.request.params" :key="'p'+i">
                         <tr class="kv-row">
                             <td class="pr-2 py-0.5 w-5">
-                                <input type="checkbox" x-model="p.enabled"
+                                <input type="checkbox" x-model="p.enabled" @change="markDirty()"
                                        class="w-3 h-3 cursor-pointer" style="accent-color:var(--color-brand);"/>
                             </td>
                             <td class="pr-1.5 py-0.5">
-                                <input x-model="p.key" type="text" placeholder="Key"
+                                <input x-model="p.key" @input="markDirty()" type="text" placeholder="Key"
                                        class="kv-input w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
                                        style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
                                        onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
@@ -57,7 +56,7 @@
                                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                                     <div class="vf-back" x-html="highlightVars(p.value)"></div>
                                     <input x-model="p.value" type="text" placeholder="Value"
-                                           @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                           @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                            class="vf-real focus:outline-none"
                                            onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                            onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -89,7 +88,7 @@
         </div>
 
         {{-- HEADERS --}}
-        <div x-show="requestTab === 'headers'" class="flex-1 overflow-y-auto p-4">
+        <div x-show="activeTab.requestTab === 'headers'" class="flex-1 overflow-y-auto p-4">
             <table class="w-full" style="border-collapse:collapse;">
                 <thead>
                     <tr class="text-[9px] uppercase tracking-widest" style="color:var(--color-border-input);">
@@ -100,8 +99,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {{-- Auto-generated Content-Type row (raw body only, hidden if user set one manually) --}}
-                    <tr x-show="currentRequest.body_type === 'raw' && !currentRequest.headers.some(h => h.enabled && h.key.toLowerCase() === 'content-type')">
+                    {{-- Auto-generated Content-Type row (raw body only) --}}
+                    <tr x-show="activeTab.request.body_type === 'raw' && !activeTab.request.headers.some(h => h.enabled && h.key.toLowerCase() === 'content-type')">
                         <td class="pr-2 py-0.5 w-5">
                             <input type="checkbox" checked disabled class="w-3 h-3 opacity-30" style="accent-color:var(--color-brand);"/>
                         </td>
@@ -114,7 +113,7 @@
                         <td class="py-0.5">
                             <div class="w-full rounded px-2.5 py-1.5 text-xs font-mono flex items-center gap-2"
                                  style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-4); opacity:0.6;">
-                                <span x-text="({'text':'text/plain','json':'application/json','javascript':'application/javascript','xml':'application/xml','html':'text/html'})[currentRequest.raw_body_type] ?? 'application/json'"></span>
+                                <span x-text="({'text':'text/plain','json':'application/json','javascript':'application/javascript','xml':'application/xml','html':'text/html'})[activeTab.request.raw_body_type] ?? 'application/json'"></span>
                                 <span class="ml-auto text-[9px] px-1.5 py-px rounded font-semibold uppercase tracking-wider"
                                       style="background:var(--color-brand-tint-badge); color:var(--color-brand); opacity:1;">auto</span>
                             </div>
@@ -122,14 +121,14 @@
                         <td class="pl-1.5 py-0.5 w-5"></td>
                     </tr>
 
-                    <template x-for="(h, i) in currentRequest.headers" :key="'h'+i">
+                    <template x-for="(h, i) in activeTab.request.headers" :key="'h'+i">
                         <tr class="kv-row">
                             <td class="pr-2 py-0.5 w-5">
-                                <input type="checkbox" x-model="h.enabled"
+                                <input type="checkbox" x-model="h.enabled" @change="markDirty()"
                                        class="w-3 h-3 cursor-pointer" style="accent-color:var(--color-brand);"/>
                             </td>
                             <td class="pr-1.5 py-0.5">
-                                <input x-model="h.key" type="text" placeholder="Header name"
+                                <input x-model="h.key" @input="markDirty()" type="text" placeholder="Header name"
                                        class="kv-input w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
                                        style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
                                        onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
@@ -139,7 +138,7 @@
                                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                                     <div class="vf-back" x-html="highlightVars(h.value)"></div>
                                     <input x-model="h.value" type="text" placeholder="Value"
-                                           @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                           @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                            class="vf-real focus:outline-none"
                                            onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                            onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -171,21 +170,21 @@
         </div>
 
         {{-- BODY --}}
-        <div x-show="requestTab === 'body'" class="flex-1 flex flex-col overflow-hidden">
+        <div x-show="activeTab.requestTab === 'body'" class="flex-1 flex flex-col overflow-hidden">
 
-            {{-- Body type selector (fixed height) --}}
+            {{-- Body type selector --}}
             <div class="flex items-center gap-4 flex-shrink-0 px-4 pt-4 pb-2">
                 <template x-for="btype in ['none', 'raw', 'form-data', 'x-www-form-urlencoded']" :key="btype">
                     <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                        <input type="radio" x-model="currentRequest.body_type" :value="btype"
+                        <input type="radio" x-model="activeTab.request.body_type" :value="btype" @change="markDirty()"
                                class="w-3 h-3 cursor-pointer" style="accent-color:var(--color-brand);"/>
                         <span x-text="btype" class="text-xs capitalize" style="color:var(--color-text-muted-2);"></span>
                     </label>
                 </template>
 
-                {{-- Raw content-type picker — only shown when raw is selected --}}
-                <select x-show="currentRequest.body_type === 'raw'"
-                        x-model="currentRequest.raw_body_type"
+                <select x-show="activeTab.request.body_type === 'raw'"
+                        x-model="activeTab.request.raw_body_type"
+                        @change="markDirty()"
                         class="ml-1 text-xs rounded px-2 py-0.5 cursor-pointer focus:outline-none"
                         style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-2);">
                     <option value="text">Text</option>
@@ -195,8 +194,7 @@
                     <option value="html">HTML</option>
                 </select>
 
-                {{-- Format button — only for types that support prettifying --}}
-                <button x-show="currentRequest.body_type === 'raw' && ['json','xml','html'].includes(currentRequest.raw_body_type)"
+                <button x-show="activeTab.request.body_type === 'raw' && ['json','xml','html'].includes(activeTab.request.raw_body_type)"
                         @click="formatBody()"
                         title="Prettify / format body"
                         class="ml-2 flex items-center gap-1 text-[10px] rounded px-2 py-0.5 transition-colors font-medium"
@@ -210,15 +208,15 @@
                 </button>
             </div>
 
-            {{-- Raw textarea — fills remaining vertical space --}}
-            <div x-show="currentRequest.body_type === 'raw'" class="flex-1 flex flex-col min-h-0 px-4 pb-4">
+            {{-- Raw textarea --}}
+            <div x-show="activeTab.request.body_type === 'raw'" class="flex-1 flex flex-col min-h-0 px-4 pb-4">
                 <div class="var-field-wrap vf-textarea w-full flex-1"
                      style="background:var(--color-bg-body-input); min-height:0;"
                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
-                    <div class="vf-back response-body" x-html="highlightBodyContent(currentRequest.body ?? '')"></div>
-                    <textarea x-model="currentRequest.body"
+                    <div class="vf-back response-body" x-html="highlightBodyContent(activeTab.request.body ?? '')"></div>
+                    <textarea x-model="activeTab.request.body"
                               placeholder='{"key": "value"}'
-                              @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                              @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                               @keydown.tab.prevent="
                                   const s = $el.selectionStart, e = $el.selectionEnd;
                                   $el.value = $el.value.slice(0, s) + '  ' + $el.value.slice(e);
@@ -232,8 +230,8 @@
                 </div>
             </div>
 
-            {{-- Form key-value body (scrollable) --}}
-            <div x-show="currentRequest.body_type === 'form-data' || currentRequest.body_type === 'x-www-form-urlencoded'"
+            {{-- Form key-value body --}}
+            <div x-show="activeTab.request.body_type === 'form-data' || activeTab.request.body_type === 'x-www-form-urlencoded'"
                  class="flex-1 overflow-y-auto px-4 pb-4">
                 <table class="w-full" style="border-collapse:collapse;">
                     <thead>
@@ -245,14 +243,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="(r, i) in currentRequest.body_form" :key="'bf'+i">
+                        <template x-for="(r, i) in activeTab.request.body_form" :key="'bf'+i">
                             <tr class="kv-row">
                                 <td class="pr-2 py-0.5 w-5">
-                                    <input type="checkbox" x-model="r.enabled"
+                                    <input type="checkbox" x-model="r.enabled" @change="markDirty()"
                                            class="w-3 h-3 cursor-pointer" style="accent-color:var(--color-brand);"/>
                                 </td>
                                 <td class="pr-1.5 py-0.5">
-                                    <input x-model="r.key" type="text" placeholder="Key"
+                                    <input x-model="r.key" @input="markDirty()" type="text" placeholder="Key"
                                            class="w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
                                            style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
                                            onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
@@ -262,7 +260,7 @@
                                          @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                                         <div class="vf-back" x-html="highlightVars(r.value)"></div>
                                         <input x-model="r.value" type="text" placeholder="Value"
-                                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                               @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                                class="vf-real focus:outline-none"
                                                onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                                onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -294,17 +292,18 @@
             </div>
 
             {{-- None --}}
-            <div x-show="currentRequest.body_type === 'none'" class="px-4 pb-4">
+            <div x-show="activeTab.request.body_type === 'none'" class="px-4 pb-4">
                 <p class="text-xs" style="color:var(--color-border-input);">This request has no body.</p>
             </div>
 
         </div>{{-- end BODY tab --}}
 
         {{-- AUTH --}}
-        <div x-show="requestTab === 'auth'" class="flex-1 overflow-y-auto p-4">
+        <div x-show="activeTab.requestTab === 'auth'" class="flex-1 overflow-y-auto p-4">
             <div class="mb-4">
                 <label class="block text-[9px] uppercase tracking-widest mb-2" style="color:var(--color-text-muted-5);">Auth Type</label>
-                <select x-model="currentRequest.auth_type"
+                <select x-model="activeTab.request.auth_type"
+                        @change="markDirty()"
                         class="rounded px-3 py-2 text-xs focus:outline-none"
                         style="background:var(--color-bg-base); border:1px solid var(--color-border-input); color:var(--color-text-input);">
                     <option value="none">No Auth</option>
@@ -315,15 +314,15 @@
             </div>
 
             {{-- Bearer --}}
-            <div x-show="currentRequest.auth_type === 'bearer'" class="space-y-3">
+            <div x-show="activeTab.request.auth_type === 'bearer'" class="space-y-3">
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Token</label>
                     <div class="var-field-wrap vf-md w-full"
                          @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
-                        <div class="vf-back" x-html="highlightVars(currentRequest.auth_data.token ?? '')"></div>
-                        <input x-model="currentRequest.auth_data.token"
+                        <div class="vf-back" x-html="highlightVars(activeTab.request.auth_data.token ?? '')"></div>
+                        <input x-model="activeTab.request.auth_data.token"
                                type="text" placeholder="Enter bearer token"
-                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                               @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                class="vf-real focus:outline-none"
                                onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -332,10 +331,11 @@
             </div>
 
             {{-- Basic --}}
-            <div x-show="currentRequest.auth_type === 'basic'" class="space-y-3">
+            <div x-show="activeTab.request.auth_type === 'basic'" class="space-y-3">
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Username</label>
-                    <input x-model="currentRequest.auth_data.username"
+                    <input x-model="activeTab.request.auth_data.username"
+                           @input="markDirty()"
                            type="text" placeholder="username"
                            class="w-full rounded px-3 py-2 text-xs focus:outline-none"
                            style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
@@ -343,7 +343,8 @@
                 </div>
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Password</label>
-                    <input x-model="currentRequest.auth_data.password"
+                    <input x-model="activeTab.request.auth_data.password"
+                           @input="markDirty()"
                            type="password" placeholder="password"
                            class="w-full rounded px-3 py-2 text-xs focus:outline-none"
                            style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
@@ -352,10 +353,11 @@
             </div>
 
             {{-- API Key --}}
-            <div x-show="currentRequest.auth_type === 'api_key'" class="space-y-3">
+            <div x-show="activeTab.request.auth_type === 'api_key'" class="space-y-3">
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Key Name</label>
-                    <input x-model="currentRequest.auth_data.key"
+                    <input x-model="activeTab.request.auth_data.key"
+                           @input="markDirty()"
                            type="text" placeholder="X-API-Key"
                            class="w-full rounded px-3 py-2 text-xs font-mono focus:outline-none"
                            style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-input);"
@@ -365,10 +367,10 @@
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Value</label>
                     <div class="var-field-wrap vf-md w-full"
                          @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
-                        <div class="vf-back" x-html="highlightVars(currentRequest.auth_data.value ?? '')"></div>
-                        <input x-model="currentRequest.auth_data.value"
+                        <div class="vf-back" x-html="highlightVars(activeTab.request.auth_data.value ?? '')"></div>
+                        <input x-model="activeTab.request.auth_data.value"
                                type="text" placeholder="API key value"
-                               @input="checkVarAc($event)" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                               @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                class="vf-real focus:outline-none"
                                onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -376,7 +378,8 @@
                 </div>
                 <div>
                     <label class="block text-[9px] uppercase tracking-widest mb-1.5" style="color:var(--color-text-muted-5);">Add To</label>
-                    <select x-model="currentRequest.auth_data.in"
+                    <select x-model="activeTab.request.auth_data.in"
+                            @change="markDirty()"
                             class="rounded px-3 py-2 text-xs focus:outline-none"
                             style="background:var(--color-bg-base); border:1px solid var(--color-border-input); color:var(--color-text-input);">
                         <option value="header">Header</option>
@@ -386,7 +389,7 @@
             </div>
 
             {{-- None --}}
-            <div x-show="currentRequest.auth_type === 'none'">
+            <div x-show="activeTab.request.auth_type === 'none'">
                 <p class="text-xs" style="color:var(--color-border-input);">No authentication for this request.</p>
             </div>
         </div>{{-- end AUTH tab --}}

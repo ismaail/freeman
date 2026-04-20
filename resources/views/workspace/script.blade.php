@@ -3,9 +3,6 @@ function workspace() {
     return {
         // Layout
         sidebarTab: 'collections',
-        requestOpen: false,
-        requestTab: 'params',
-        responseTab: 'body',
         userMenuOpen: false,
         envMenuOpen: false,
 
@@ -16,9 +13,6 @@ function workspace() {
         collections: [],
         environments: [],
         collectionsLoading: true,
-
-        // Resolved variables for the current request's collection (flat key→value)
-        currentCollectionVars: {},
 
         // Floating tooltip shown when hovering a {variable} in the URL bar
         varTooltip: { show: false, text: '', x: 0, y: 0, isUndef: false },
@@ -38,7 +32,6 @@ function workspace() {
         // Sidebar state
         expandedCollections: {},
         expandedFolders: {},
-        activeRequestId: null,
         collectionMenuOpen: null,
         importNotification: null,
         addCollectionMenuOpen: false,
@@ -61,39 +54,25 @@ function workspace() {
             folderId: null,
             saving: false,
             error: null,
-            path: [],   // [{id, name, type:'collection'|'folder'}] — browser nav stack
+            path: [],
         },
 
-        // Request being built
-        currentRequest: {
-            name: 'New Request',
-            method: 'GET',
-            url: '',
-            params:    [{ key: '', value: '', enabled: true }],
-            headers:   [{ key: '', value: '', enabled: true }],
-            body_type: 'none',
-            raw_body_type: 'json',
-            body: '',
-            body_form: [{ key: '', value: '', enabled: true }],
-            auth_type: 'none',
-            auth_data: { token: '', username: '', password: '', key: '', value: '', in: 'header' },
-        },
-
-        // URL field
+        // URL field focus state
         urlFocused: false,
 
-        // Response
-        response: null,
-        isLoading: false,
-        responseViewMode: 'pretty',   // 'pretty' | 'raw'
-        responseForceType: 'auto',    // 'auto' | 'json' | 'xml' | 'html' | 'text'
+        // Copy button flash state (top-level — transient UI, not tab-specific)
         responseCopied: false,
+
+        // ---- TABS ----
+        tabs: [],
+        activeTabId: null,
 
         // ---- Init ----
 
         init() {
             this.loadCollections();
             this.loadEnvironments();
+            this.restoreTabs();
 
             // Ctrl+S → Save request (prevent browser "Save page" dialog)
             window.addEventListener('keydown', (e) => {
@@ -106,19 +85,21 @@ function workspace() {
 
         // ---- Computed ----
 
+        get activeTab() {
+            return this.tabs.find(t => t.id === this.activeTabId) ?? null;
+        },
+
         get activeEnvironment() {
             return this.environments.find(e => e.is_active) || null;
         },
 
         get responseDetectedType() {
-            if (!this.response?.response_headers) return 'text';
-            return this.detectContentType(this.response.response_headers);
+            if (!this.activeTab?.response?.response_headers) return 'text';
+            return this.detectContentType(this.activeTab.response.response_headers);
         },
 
-        // Items to show in the save-modal folder browser at the current path level.
         get saveModalBrowserItems() {
             if (!this.saveModal.path.length) {
-                // Root: show all collections
                 return this.collections.map(c => ({
                     id: c.id, name: c.name, type: 'collection',
                     hasChildren: (c.folders || []).some(f => (f.parent_folder_id ?? null) === null),
@@ -138,11 +119,11 @@ function workspace() {
         },
 
         get filledParamCount() {
-            return (this.currentRequest.params || []).filter(p => p.key.trim()).length;
+            return (this.activeTab?.request.params || []).filter(p => p.key.trim()).length;
         },
 
         get filledHeaderCount() {
-            return (this.currentRequest.headers || []).filter(h => h.key.trim()).length;
+            return (this.activeTab?.request.headers || []).filter(h => h.key.trim()).length;
         },
 
         // ---- Data loading ----
@@ -184,7 +165,7 @@ function workspace() {
         },
         isFolderExpanded(id) { return !!this.expandedFolders[id]; },
 
-        // ---- Request management ----
+        // ---- Tab management ----
 
         blankRequest() {
             return {
@@ -203,19 +184,102 @@ function workspace() {
             };
         },
 
-        newRequest() {
-            this.activeRequestId     = null;
-            this.currentRequest      = this.blankRequest();
-            this.currentCollectionVars = {};
-            this.response            = null;
-            this.requestTab          = 'params';
-            this.requestOpen         = true;
+        blankTab() {
+            return {
+                id: 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+                requestId: null,
+                isDirty: false,
+                savedSnapshot: null,
+                request: this.blankRequest(),
+                response: null,
+                isLoading: false,
+                requestTab: 'params',
+                responseTab: 'body',
+                responseViewMode: 'pretty',
+                responseForceType: 'auto',
+                collectionVars: {},
+            };
         },
 
+        newTab() {
+            const tab = this.blankTab();
+            this.tabs.push(tab);
+            this.activeTabId = tab.id;
+        },
+
+        // Backward-compat alias (welcome.blade.php calls newRequest())
+        newRequest() {
+            this.newTab();
+        },
+
+        switchTab(tabId) {
+            this.activeTabId = tabId;
+        },
+
+        closeTab(tabId) {
+            const tab = this.tabs.find(t => t.id === tabId);
+            if (!tab) return;
+            if (tab.isDirty && !confirm('This tab has unsaved changes. Close anyway?')) return;
+
+            const idx = this.tabs.indexOf(tab);
+            this.tabs.splice(idx, 1);
+
+            if (this.activeTabId === tabId) {
+                const next = this.tabs[idx] ?? this.tabs[idx - 1] ?? null;
+                this.activeTabId = next?.id ?? null;
+            }
+
+            this.persistTabs();
+        },
+
+        markDirty() {
+            const tab = this.activeTab;
+            if (!tab || tab.savedSnapshot === null) return;
+            tab.isDirty = JSON.stringify(tab.request) !== tab.savedSnapshot;
+        },
+
+        persistTabs() {
+            const ids = this.tabs.filter(t => t.requestId).map(t => t.requestId);
+            localStorage.setItem('freeman_open_tabs', JSON.stringify(ids));
+            localStorage.setItem('freeman_active_tab', String(this.activeTab?.requestId ?? ''));
+        },
+
+        async restoreTabs() {
+            try {
+                const saved      = JSON.parse(localStorage.getItem('freeman_open_tabs') || '[]');
+                const activeReqId = localStorage.getItem('freeman_active_tab') || '';
+                if (!saved.length) return;
+
+                for (const requestId of saved) {
+                    await this.openRequest(requestId);
+                }
+
+                if (activeReqId) {
+                    const tab = this.tabs.find(t => String(t.requestId) === activeReqId);
+                    if (tab) this.activeTabId = tab.id;
+                }
+            } catch (e) {
+                console.error('restoreTabs:', e);
+                localStorage.removeItem('freeman_open_tabs');
+                localStorage.removeItem('freeman_active_tab');
+            }
+        },
+
+        // ---- Request open / load ----
+
         async openRequest(requestId) {
-            this.requestOpen     = true;
-            this.response        = null;
-            this.activeRequestId = requestId;
+            // Focus existing tab if already open
+            const existing = this.tabs.find(t => t.requestId === requestId);
+            if (existing) {
+                this.activeTabId = existing.id;
+                return;
+            }
+
+            // Create placeholder tab immediately so the chip appears while loading
+            const tab = this.blankTab();
+            tab.requestId = requestId;
+            this.tabs.push(tab);
+            this.activeTabId = tab.id;
 
             try {
                 const res  = await fetch(`/requests/${requestId}`, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
@@ -224,25 +288,23 @@ function workspace() {
                 const ad   = d.auth_data || {};
 
                 if (d.collection_id) {
-                    this.loadCurrentCollectionVars(d.collection_id);
-                } else {
-                    this.currentCollectionVars = {};
+                    await this.loadCollectionVarsForTab(tab, d.collection_id);
                 }
 
-                this.currentRequest = {
+                tab.request = {
                     collection_id: d.collection_id || null,
-                    name:      d.name      || 'Untitled',
-                    method:    d.method    || 'GET',
-                    url:       d.url       || '',
-                    params:    [{ key: '', value: '', enabled: true }],
-                    headers:   Array.isArray(d.headers) && d.headers.length
-                                   ? d.headers
-                                   : [{ key: '', value: '', enabled: true }],
+                    name:          d.name          || 'Untitled',
+                    method:        d.method        || 'GET',
+                    url:           d.url           || '',
+                    params:        [{ key: '', value: '', enabled: true }],
+                    headers:       Array.isArray(d.headers) && d.headers.length
+                                       ? d.headers
+                                       : [{ key: '', value: '', enabled: true }],
                     body_type:     d.body_type     || 'none',
                     raw_body_type: d.raw_body_type || 'json',
                     body:          d.body          || '',
-                    body_form: [{ key: '', value: '', enabled: true }],
-                    auth_type: d.auth_type || 'none',
+                    body_form:     [{ key: '', value: '', enabled: true }],
+                    auth_type:     d.auth_type     || 'none',
                     auth_data: {
                         token:    ad.token    || '',
                         username: ad.username || '',
@@ -252,58 +314,86 @@ function workspace() {
                         in:       ad.in       || 'header',
                     },
                 };
+                tab.savedSnapshot = JSON.stringify(tab.request);
+                tab.isDirty       = false;
+                this.persistTabs();
             } catch (e) {
                 console.error('openRequest:', e);
+                this.tabs = this.tabs.filter(t => t.id !== tab.id);
+                if (this.activeTabId === tab.id) {
+                    this.activeTabId = this.tabs[this.tabs.length - 1]?.id ?? null;
+                }
+            }
+        },
+
+        async loadCollectionVarsForTab(tab, collectionId) {
+            try {
+                const res  = await fetch(`/collections/${collectionId}/variables`, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const json = await res.json();
+                const map  = {};
+                (json.data || []).forEach(v => { if (v.enabled && v.key) map[v.key] = v.value; });
+                tab.collectionVars = map;
+            } catch (e) {
+                tab.collectionVars = {};
+            }
+        },
+
+        async loadCurrentCollectionVars(collectionId) {
+            if (this.activeTab) {
+                await this.loadCollectionVarsForTab(this.activeTab, collectionId);
             }
         },
 
         // ---- Send ----
 
         async sendRequest() {
-            if (!this.currentRequest.url.trim() || this.isLoading) return;
+            const tab = this.activeTab;
+            if (!tab || !tab.request.url.trim() || tab.isLoading) return;
 
-            this.isLoading = true;
-            this.response  = null;
+            tab.isLoading = true;
+            tab.response  = null;
 
             // Append query params to URL
-            let url = this.currentRequest.url;
-            const qp = this.currentRequest.params.filter(p => p.enabled && p.key.trim());
+            let url = tab.request.url;
+            const qp = tab.request.params.filter(p => p.enabled && p.key.trim());
             if (qp.length) {
                 const qs = qp.map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&');
                 url += (url.includes('?') ? '&' : '?') + qs;
             }
 
             // Serialize form body if needed
-            let body = this.currentRequest.body;
-            if (['form-data', 'x-www-form-urlencoded'].includes(this.currentRequest.body_type)) {
-                body = JSON.stringify(this.currentRequest.body_form.filter(r => r.key.trim()));
+            let body = tab.request.body;
+            if (['form-data', 'x-www-form-urlencoded'].includes(tab.request.body_type)) {
+                body = JSON.stringify(tab.request.body_form.filter(r => r.key.trim()));
             }
 
             // Build effective headers — inject Content-Type for raw body if not already set
-            let effectiveHeaders = this.currentRequest.headers.filter(h => h.key.trim());
-            if (this.currentRequest.body_type === 'raw') {
+            let effectiveHeaders = tab.request.headers.filter(h => h.key.trim());
+            if (tab.request.body_type === 'raw') {
                 const hasContentType = effectiveHeaders.some(h => h.key.toLowerCase() === 'content-type');
                 if (!hasContentType) {
                     const ctMap = { text: 'text/plain', json: 'application/json', javascript: 'application/javascript', xml: 'application/xml', html: 'text/html' };
-                    const ct = ctMap[this.currentRequest.raw_body_type] ?? 'application/json';
+                    const ct = ctMap[tab.request.raw_body_type] ?? 'application/json';
                     effectiveHeaders = [{ key: 'Content-Type', value: ct, enabled: true }, ...effectiveHeaders];
                 }
             }
 
             const payload = {
-                method:        this.currentRequest.method,
+                method:        tab.request.method,
                 url,
                 headers:       effectiveHeaders,
-                body_type:     this.currentRequest.body_type,
+                body_type:     tab.request.body_type,
                 body,
-                auth_type:     this.currentRequest.auth_type,
-                auth_data:     this.currentRequest.auth_data,
-                request_id:    this.activeRequestId,
-                collection_id: this.currentRequest.collection_id,
+                auth_type:     tab.request.auth_type,
+                auth_data:     tab.request.auth_data,
+                request_id:    tab.requestId,
+                collection_id: tab.request.collection_id,
             };
 
             try {
-                const res     = await fetch('/run', {
+                const res  = await fetch('/run', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -313,21 +403,21 @@ function workspace() {
                     },
                     body: JSON.stringify(payload),
                 });
-                this.response    = await res.json();
-                this.responseTab = 'body';
+                tab.response    = await res.json();
+                tab.responseTab = 'body';
             } catch (e) {
-                this.response = { success: false, error: e.message, status: 0, response_time_ms: 0, response_body: '', response_headers: {} };
+                tab.response = { success: false, error: e.message, status: 0, response_time_ms: 0, response_body: '', response_headers: {} };
             } finally {
-                this.isLoading = false;
+                tab.isLoading = false;
             }
         },
 
-        // ---- Save (existing request only; full save modal is future work) ----
+        // ---- Save ----
 
         openSaveModal() {
             this.saveModal = {
                 open: true,
-                name: this.currentRequest.name || 'New Request',
+                name: this.activeTab?.request.name || 'New Request',
                 collectionId: null,
                 folderId: null,
                 saving: false,
@@ -336,7 +426,6 @@ function workspace() {
             };
         },
 
-        // Navigate into a collection or folder in the save-modal browser
         saveModalNavigateInto(item) {
             this.saveModal.path = [...this.saveModal.path, { id: item.id, name: item.name, type: item.type }];
             if (item.type === 'collection') {
@@ -347,7 +436,6 @@ function workspace() {
             }
         },
 
-        // Navigate back to a specific breadcrumb index (-1 = all collections root)
         saveModalNavigateTo(index) {
             if (index < 0) {
                 this.saveModal.path = [];
@@ -366,12 +454,14 @@ function workspace() {
         },
 
         async confirmSaveRequest() {
+            const tab = this.activeTab;
+            if (!tab) return;
             if (!this.saveModal.collectionId) {
                 this.saveModal.error = 'Please select a collection.';
                 return;
             }
             this.saveModal.saving = true;
-            this.saveModal.error = null;
+            this.saveModal.error  = null;
             try {
                 const res = await fetch('/requests', {
                     method: 'POST',
@@ -382,16 +472,16 @@ function workspace() {
                     },
                     body: JSON.stringify({
                         name:          this.saveModal.name,
-                        method:        this.currentRequest.method,
-                        url:           this.currentRequest.url,
+                        method:        tab.request.method,
+                        url:           tab.request.url,
                         collection_id: this.saveModal.collectionId,
                         folder_id:     this.saveModal.folderId || null,
-                        headers:       this.currentRequest.headers.filter(h => h.key.trim()),
-                        body_type:     this.currentRequest.body_type,
-                        raw_body_type: this.currentRequest.raw_body_type,
-                        body:          this.currentRequest.body,
-                        auth_type:     this.currentRequest.auth_type,
-                        auth_data:     this.currentRequest.auth_data,
+                        headers:       tab.request.headers.filter(h => h.key.trim()),
+                        body_type:     tab.request.body_type,
+                        raw_body_type: tab.request.raw_body_type,
+                        body:          tab.request.body,
+                        auth_type:     tab.request.auth_type,
+                        auth_data:     tab.request.auth_data,
                     }),
                 });
                 const json = await res.json();
@@ -399,10 +489,13 @@ function workspace() {
                     this.saveModal.error = json.message || 'Failed to save.';
                     return;
                 }
-                this.activeRequestId = json.data.id;
-                this.currentRequest.name = this.saveModal.name;
-                this.currentRequest.collection_id = this.saveModal.collectionId;
-                this.saveModal.open = false;
+                tab.requestId             = json.data.id;
+                tab.request.name          = this.saveModal.name;
+                tab.request.collection_id = this.saveModal.collectionId;
+                tab.savedSnapshot         = JSON.stringify(tab.request);
+                tab.isDirty               = false;
+                this.saveModal.open       = false;
+                this.persistTabs();
                 await this.loadCollections();
             } catch (e) {
                 this.saveModal.error = 'An error occurred.';
@@ -413,12 +506,14 @@ function workspace() {
         },
 
         async saveRequest() {
-            if (!this.activeRequestId) {
+            const tab = this.activeTab;
+            if (!tab) return;
+            if (!tab.requestId) {
                 this.openSaveModal();
                 return;
             }
             try {
-                await fetch(`/requests/${this.activeRequestId}`, {
+                await fetch(`/requests/${tab.requestId}`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -426,18 +521,20 @@ function workspace() {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                     },
                     body: JSON.stringify({
-                        name:      this.currentRequest.name,
-                        method:    this.currentRequest.method,
-                        url:       this.currentRequest.url,
-                        headers:       this.currentRequest.headers.filter(h => h.key.trim()),
-                        body_type:     this.currentRequest.body_type,
-                        raw_body_type: this.currentRequest.raw_body_type,
-                        body:          this.currentRequest.body,
-                        auth_type:     this.currentRequest.auth_type,
-                        auth_data: this.currentRequest.auth_data,
+                        name:          tab.request.name,
+                        method:        tab.request.method,
+                        url:           tab.request.url,
+                        headers:       tab.request.headers.filter(h => h.key.trim()),
+                        body_type:     tab.request.body_type,
+                        raw_body_type: tab.request.raw_body_type,
+                        body:          tab.request.body,
+                        auth_type:     tab.request.auth_type,
+                        auth_data:     tab.request.auth_data,
                     }),
                 });
-                await this.loadCollections(); // refresh sidebar
+                tab.savedSnapshot = JSON.stringify(tab.request);
+                tab.isDirty       = false;
+                await this.loadCollections();
             } catch (e) {
                 console.error('saveRequest:', e);
             }
@@ -474,13 +571,10 @@ function workspace() {
         },
 
         // ---- Folder tree (flat depth-first for sidebar rendering) ----
-        // The API returns all folders flat (with parent_folder_id). We build the
-        // display list here via a depth-first walk so Alpine can iterate a simple array.
 
         flatCollectionTree(col) {
             const rows      = [];
             const allFolders = col.folders || [];
-            // Build a map: parentId → [child folders]
             const childMap  = {};
             for (const f of allFolders) {
                 const pid = f.parent_folder_id ?? null;
@@ -499,11 +593,9 @@ function workspace() {
                     }
                 }
             };
-            // Root-level requests first
             for (const req of (col.requests || [])) {
                 rows.push({ type: 'request', req, depth: 0 });
             }
-            // Then folders starting from root (parent_folder_id = null)
             walk(null, 0);
             return rows;
         },
@@ -526,7 +618,7 @@ function workspace() {
             const name = this.folderModal.name.trim();
             if (!name) return;
             this.folderModal.loading = true;
-            this.folderModal.error = null;
+            this.folderModal.error   = null;
             const payload = { name };
             if (this.folderModal.parentFolderId) payload.parent_folder_id = this.folderModal.parentFolderId;
             try {
@@ -569,7 +661,7 @@ function workspace() {
             const name = this.renameFolderModal.name.trim();
             if (!name) return;
             this.renameFolderModal.loading = true;
-            this.renameFolderModal.error = null;
+            this.renameFolderModal.error   = null;
             try {
                 const res  = await fetch(`/collections/${this.renameFolderModal.collectionId}/folders/${this.renameFolderModal.folderId}`, {
                     method: 'PATCH',
@@ -627,7 +719,7 @@ function workspace() {
             const name = this.newCollectionName.trim();
             if (!name) return;
             this.newCollectionLoading = true;
-            this.newCollectionError = null;
+            this.newCollectionError   = null;
             try {
                 const res  = await fetch('/collections', {
                     method: 'POST',
@@ -665,7 +757,7 @@ function workspace() {
             const name = this.renameCollectionModal.name.trim();
             if (!name) return;
             this.renameCollectionModal.loading = true;
-            this.renameCollectionModal.error = null;
+            this.renameCollectionModal.error   = null;
             try {
                 const res  = await fetch(`/collections/${this.renameCollectionModal.collectionId}`, {
                     method: 'PATCH',
@@ -708,8 +800,8 @@ function workspace() {
                 const res  = await fetch('/collections/import', {
                     method: 'POST',
                     headers: {
-                        'Accept':       'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                     body: formData,
@@ -726,7 +818,6 @@ function workspace() {
                 this.importNotification = { ok: false, msg: 'Network error during import.' };
             }
 
-            // Auto-dismiss after 4 seconds
             setTimeout(() => { this.importNotification = null; }, 4000);
         },
 
@@ -738,16 +829,18 @@ function workspace() {
                 await fetch(`/collections/${id}`, {
                     method: 'DELETE',
                     headers: {
-                        'Accept':       'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                 });
-                if (this.activeRequestId !== null) {
-                    // If a request from the deleted collection was open, clear it
-                    this.requestOpen = false;
-                    this.activeRequestId = null;
+                // Close any tabs for requests that belonged to this collection
+                const before = this.activeTabId;
+                this.tabs = this.tabs.filter(t => t.request.collection_id !== id);
+                if (!this.tabs.find(t => t.id === before)) {
+                    this.activeTabId = this.tabs[this.tabs.length - 1]?.id ?? null;
                 }
+                this.persistTabs();
                 await this.loadCollections();
             } catch (e) {
                 console.error('deleteCollection:', e);
@@ -756,7 +849,7 @@ function workspace() {
 
         // ---- Collection variable loading ----
 
-        async loadCurrentCollectionVars(collectionId) {
+        async loadCollectionVarsForTab(tab, collectionId) {
             try {
                 const res  = await fetch(`/collections/${collectionId}/variables`, {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -764,24 +857,25 @@ function workspace() {
                 const json = await res.json();
                 const map  = {};
                 (json.data || []).forEach(v => { if (v.enabled && v.key) map[v.key] = v.value; });
-                this.currentCollectionVars = map;
+                tab.collectionVars = map;
             } catch (e) {
-                this.currentCollectionVars = {};
+                tab.collectionVars = {};
+            }
+        },
+
+        async loadCurrentCollectionVars(collectionId) {
+            if (this.activeTab) {
+                await this.loadCollectionVarsForTab(this.activeTab, collectionId);
             }
         },
 
         // ---- URL variable hover tooltip ----
-        // Uses elementFromPoint trick: briefly disable pointer-events on the real
-        // input so document.elementFromPoint() can reach the backdrop marks.
 
         onVarHover(event) {
-            // Works for URL bar (.url-field-wrap) and generic wrappers (.var-field-wrap).
             const wrap  = event.currentTarget;
             const input = wrap.querySelector('input, textarea');
             if (!input) return;
 
-            // Hide the real input from hit-testing so elementFromPoint can reach
-            // the <mark> elements in the backdrop behind it.
             input.style.pointerEvents = 'none';
             const el = document.elementFromPoint(event.clientX, event.clientY);
             input.style.pointerEvents = '';
@@ -810,12 +904,13 @@ function workspace() {
             return this.highlightUrl(text);
         },
 
-        // ---- variable autocomplete ----
+        // ---- Variable autocomplete ----
 
         checkVarAc(event) {
             const el = event.target;
             if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
-            if (!Object.keys(this.currentCollectionVars).length) { this.varAc.show = false; return; }
+            const vars = this.activeTab?.collectionVars ?? {};
+            if (!Object.keys(vars).length) { this.varAc.show = false; return; }
 
             const val    = el.value;
             const pos    = el.selectionStart ?? val.length;
@@ -828,8 +923,7 @@ function workspace() {
             }
 
             const query       = before.slice(openAt + 2).toLowerCase();
-            const suggestions = Object.keys(this.currentCollectionVars)
-                .filter(k => k.toLowerCase().includes(query));
+            const suggestions = Object.keys(vars).filter(k => k.toLowerCase().includes(query));
 
             if (!suggestions.length) { this.varAc.show = false; return; }
 
@@ -850,7 +944,7 @@ function workspace() {
             const before = val.slice(0, pos);
             const openAt = before.lastIndexOf('{' + '{');
             const newVal = val.slice(0, openAt) + '{' + '{' + name + '}' + '}' + val.slice(pos);
-            const newPos = openAt + name.length + 4; // open + name + close
+            const newPos = openAt + name.length + 4;
 
             el.value = newVal;
             el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -907,8 +1001,8 @@ function workspace() {
                         variables: this.collectionVarsModal.variables.filter(v => v.key.trim()),
                     }),
                 });
-                // Reload vars if the saved collection is the active one
-                if (this.currentRequest.collection_id === this.collectionVarsModal.collectionId) {
+                // Reload vars if the active tab uses this collection
+                if (this.activeTab?.request.collection_id === this.collectionVarsModal.collectionId) {
                     await this.loadCurrentCollectionVars(this.collectionVarsModal.collectionId);
                 }
                 this.collectionVarsModal.open = false;
@@ -921,12 +1015,12 @@ function workspace() {
 
         // ---- Key-value row helpers ----
 
-        addParam()      { this.currentRequest.params.push({ key: '', value: '', enabled: true }); },
-        removeParam(i)  { this.currentRequest.params.splice(i, 1); },
-        addHeader()     { this.currentRequest.headers.push({ key: '', value: '', enabled: true }); },
-        removeHeader(i) { this.currentRequest.headers.splice(i, 1); },
-        addFormRow()      { this.currentRequest.body_form.push({ key: '', value: '', enabled: true }); },
-        removeFormRow(i)  { this.currentRequest.body_form.splice(i, 1); },
+        addParam()       { this.activeTab?.request.params.push({ key: '', value: '', enabled: true }); },
+        removeParam(i)   { this.activeTab?.request.params.splice(i, 1); },
+        addHeader()      { this.activeTab?.request.headers.push({ key: '', value: '', enabled: true }); },
+        removeHeader(i)  { this.activeTab?.request.headers.splice(i, 1); },
+        addFormRow()     { this.activeTab?.request.body_form.push({ key: '', value: '', enabled: true }); },
+        removeFormRow(i) { this.activeTab?.request.body_form.splice(i, 1); },
 
         // ---- Style helpers ----
 
@@ -975,7 +1069,7 @@ function workspace() {
 
         highlightUrl(url) {
             if (!url) return '';
-            const vars = this.currentCollectionVars;
+            const vars = this.activeTab?.collectionVars ?? {};
             return this.escHtml(url).replace(/\{\{([^}]*)\}\}/g, (match, key) => {
                 const k = key.trim();
                 if (k in vars) {
@@ -987,7 +1081,6 @@ function workspace() {
 
         // ---- Response body rendering ----
 
-        // Detect content type from response headers object
         detectContentType(headers) {
             if (!headers) return 'text';
             const entry = Object.entries(headers)
@@ -1003,26 +1096,26 @@ function workspace() {
 
         renderResponseBody(body, headers) {
             if (!body) return '<span style="color:var(--color-border-input);">— empty response —</span>';
-            const type = this.responseForceType !== 'auto'
-                ? this.responseForceType
-                : this.detectContentType(headers);
-            if (this.responseViewMode === 'raw') return this.escHtml(body);
-            if (type === 'json')                    return this.highlightJson(body);
-            if (type === 'xml' || type === 'html')  return this.highlightXml(body);
-            if (type === 'javascript')              return this.highlightJsEditor(body);
+            const tab  = this.activeTab;
+            const type = (tab?.responseForceType !== 'auto' ? tab?.responseForceType : null)
+                ?? this.detectContentType(headers);
+            if (tab?.responseViewMode === 'raw')            return this.escHtml(body);
+            if (type === 'json')                            return this.highlightJson(body);
+            if (type === 'xml' || type === 'html')          return this.highlightXml(body);
+            if (type === 'javascript')                      return this.highlightJsEditor(body);
             return this.escHtml(body);
         },
 
         async copyResponseBody() {
-            if (!this.response?.response_body) return;
+            const body = this.activeTab?.response?.response_body;
+            if (!body) return;
             try {
-                await navigator.clipboard.writeText(this.response.response_body);
+                await navigator.clipboard.writeText(body);
                 this.responseCopied = true;
                 setTimeout(() => { this.responseCopied = false; }, 2000);
             } catch {}
         },
 
-        // Escape HTML entities in a raw string
         escHtml(s) {
             return String(s)
                 .replace(/&/g, '&amp;')
@@ -1030,17 +1123,15 @@ function workspace() {
                 .replace(/>/g, '&gt;');
         },
 
-        // Dispatcher for body editor syntax highlighting (no reformatting — preserves alignment)
         highlightBodyContent(text) {
             if (!text) return '';
-            const type = this.currentRequest.raw_body_type;
+            const type = this.activeTab?.request.raw_body_type;
             if (type === 'json')                    return this.highlightJsonEditor(text);
             if (type === 'xml' || type === 'html')  return this.highlightXmlEditor(text);
             if (type === 'javascript')              return this.highlightJsEditor(text);
-            return this.highlightVars(text);  // plain text — still show var marks
+            return this.highlightVars(text);
         },
 
-        // JSON coloriser for the body editor — character-level tokeniser, NO reformatting
         highlightJsonEditor(body) {
             if (!body) return '';
             const len = body.length;
@@ -1092,7 +1183,6 @@ function workspace() {
             return html;
         },
 
-        // XML/HTML coloriser for the body editor — colorise only, NO indentation reformatting
         highlightXmlEditor(body) {
             if (!body) return '';
             const esc = this.escHtml(body);
@@ -1115,7 +1205,6 @@ function workspace() {
                 );
         },
 
-        // JavaScript coloriser for the body editor — highlights comments only (safe, no false positives)
         highlightJsEditor(body) {
             if (!body) return '';
             const esc = this.escHtml(body);
@@ -1124,16 +1213,17 @@ function workspace() {
                 .replace(/(\/\/[^\n]*)/g,        '<span class="xml-comment">$1</span>');
         },
 
-        // Pretty-print the raw body in-place (updates currentRequest.body)
         formatBody() {
-            const type = this.currentRequest.raw_body_type;
-            const src  = this.currentRequest.body ?? '';
+            const tab = this.activeTab;
+            if (!tab) return;
+            const type = tab.request.raw_body_type;
+            const src  = tab.request.body ?? '';
             if (type === 'json') {
-                try { this.currentRequest.body = JSON.stringify(JSON.parse(src), null, 2); } catch {}
+                try { tab.request.body = JSON.stringify(JSON.parse(src), null, 2); } catch {}
             } else if (type === 'xml' || type === 'html') {
                 try {
                     let depth = 0;
-                    this.currentRequest.body = src
+                    tab.request.body = src
                         .replace(/>\s*</g, '>\n<')
                         .split('\n')
                         .map(raw => {
@@ -1150,7 +1240,6 @@ function workspace() {
             }
         },
 
-        // JSON syntax highlight — character-level tokeniser (no double-wrap issues)
         highlightJson(body) {
             let fmt;
             try { fmt = JSON.stringify(JSON.parse(body), null, 2); }
@@ -1164,7 +1253,6 @@ function workspace() {
                 const ch = fmt[i];
 
                 if (ch === '"') {
-                    // Scan to end of JSON string (respects backslash escapes)
                     let j = i + 1;
                     while (j < len) {
                         if (fmt[j] === '\\') { j += 2; continue; }
@@ -1172,8 +1260,6 @@ function workspace() {
                         j++;
                     }
                     const token = fmt.slice(i, j);
-
-                    // Peek ahead to decide: key (followed by colon) or string value
                     let k = j;
                     while (k < len && fmt[k] === ' ') k++;
                     const isKey = fmt[k] === ':';
@@ -1191,7 +1277,6 @@ function workspace() {
                     html += '<span class="json-null">null</span>';  i += 4;
 
                 } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
-                    // Number — scan digits, optional decimal, optional exponent
                     let j = i;
                     if (fmt[j] === '-') j++;
                     while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
@@ -1208,7 +1293,6 @@ function workspace() {
                     i = j;
 
                 } else {
-                    // Structural punctuation & whitespace
                     html += this.escHtml(ch);
                     i++;
                 }
@@ -1216,9 +1300,7 @@ function workspace() {
             return html;
         },
 
-        // XML/HTML syntax highlight — indent then colorise each tag as a unit.
         highlightXml(body) {
-            // Step 1: basic indentation
             let fmt;
             try {
                 let depth = 0;
@@ -1239,22 +1321,17 @@ function workspace() {
                     .join('\n');
             } catch { fmt = body; }
 
-            // Step 2: HTML-escape the entire string
             const esc = this.escHtml(fmt);
 
-            // Step 3: colorise in safe order
             return esc
-                // Comments (process before tags — may contain tag-like text inside)
                 .replace(
                     /(&lt;!--[\s\S]*?--&gt;)/g,
                     '<span class="xml-comment">$1</span>'
                 )
-                // Processing instructions (XML PI nodes)
                 .replace(
                     /(&lt;\?[\s\S]*?\?&gt;)/g,
                     '<span class="xml-bracket">$1</span>'
                 )
-                // Every other tag — processed as ONE unit
                 .replace(
                     /(&lt;\/?)([\w][\w:.-]*)((?:[^&]|&(?!gt;))*?)(\/?&gt;)/g,
                     (_, open, tag, attrs, close) => {

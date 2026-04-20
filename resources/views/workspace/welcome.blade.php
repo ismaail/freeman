@@ -1,5 +1,5 @@
 {{-- ---- WELCOME STATE ---- --}}
-<div x-show="!requestOpen"
+<div x-show="tabs.length === 0"
      class="flex-1 flex items-center justify-center">
     <div class="text-center" style="max-width:400px;">
         <div class="flex items-center justify-center w-32 h-32 rounded-2xl mx-auto mb-5"
