@@ -70,6 +70,13 @@ _This file is auto-imported by CLAUDE.md. Log every significant architectural de
 
 ---
 
+## DD-013 — File uploads in form-data are ephemeral; only field metadata persists
+**Decision:** When a form-data row is set to type `file`, the `type: 'file'` field is saved in `body_form` JSON so other users know the field expects a file. The actual `File` object is never stored — it lives only in `window.__fileInputMap` (a plain JS object) for the duration of the browser session.
+**Reason:** Files are user-specific and potentially large. Storing them server-side per-request would require a file storage layer and a cleanup strategy. Ephemeral files keep the feature simple while still signalling to collaborators that a file field is needed.
+**Implementation note:** When file rows are present, `/run` is sent as `multipart/form-data` (using the browser's `FormData` API) instead of JSON. The backend detects this via `$request->file('body_form_files')` and `$request->input('body_form')`. Complex fields that can't be encoded in FormData (`headers`, `auth_data`) are JSON-stringified by the frontend and decoded in `RunnerController` before being passed to the service.
+
+---
+
 ## DD-012 — Collections shared across all users
 **Decision:** Collections (and the requests/folders/variables inside them) are visible and editable by every authenticated user. The `user_id` column on `collections` and `requests` is retained as an audit "created_by" field but is not used for access control.
 **Reason:** Teams working on the same instance need to collaborate on the same API collections. Per-user isolation made sense for personal tooling but is a blocker for team use. Environments and request history remain per-user (personal state).

@@ -14,6 +14,9 @@ function workspace() {
         environments: [],
         collectionsLoading: true,
 
+        // Tracks which file-type form-data rows have a file selected (reactive bool map keyed by tabId_rowIndex)
+        fileSelectedMap: {},
+
         // Floating tooltip shown when hovering a {variable} in the URL bar
         varTooltip: { show: false, text: '', x: 0, y: 0, isUndef: false },
 
@@ -178,7 +181,7 @@ function workspace() {
                 body_type: 'none',
                 raw_body_type: 'json',
                 body: '',
-                body_form: [{ key: '', value: '', enabled: true }],
+                body_form: [{ key: '', value: '', enabled: true, type: 'text' }],
                 auth_type: 'none',
                 auth_data: { token: '', username: '', password: '', key: '', value: '', in: 'header' },
             };
@@ -220,6 +223,16 @@ function workspace() {
             const tab = this.tabs.find(t => t.id === tabId);
             if (!tab) return;
             if (tab.isDirty && !confirm('This tab has unsaved changes. Close anyway?')) return;
+
+            // Clean up file map entries for this tab
+            if (window.__fileInputMap) {
+                Object.keys(window.__fileInputMap)
+                    .filter(k => k.startsWith(tabId + '_'))
+                    .forEach(k => delete window.__fileInputMap[k]);
+            }
+            const cleanedMap = { ...this.fileSelectedMap };
+            Object.keys(cleanedMap).filter(k => k.startsWith(tabId + '_')).forEach(k => delete cleanedMap[k]);
+            this.fileSelectedMap = cleanedMap;
 
             const idx = this.tabs.indexOf(tab);
             this.tabs.splice(idx, 1);
@@ -312,8 +325,8 @@ function workspace() {
                     raw_body_type: d.raw_body_type || 'json',
                     body:          d.body          || '',
                     body_form:     Array.isArray(d.body_form) && d.body_form.length
-                                       ? d.body_form
-                                       : [{ key: '', value: '', enabled: true }],
+                                       ? d.body_form.map(r => ({ ...r, type: r.type || 'text' }))
+                                       : [{ key: '', value: '', enabled: true, type: 'text' }],
                     auth_type:     d.auth_type     || 'none',
                     auth_data: {
                         token:    ad.token    || '',
@@ -362,6 +375,25 @@ function workspace() {
             const tab = this.activeTab;
             if (!tab || !tab.request.url.trim() || tab.isLoading) return;
 
+            // Validate: file-type rows must have a file selected before sending
+            if (tab.request.body_type === 'form-data') {
+                const missingFiles = [];
+                tab.request.body_form.forEach((r, i) => {
+                    if (r.enabled && r.key.trim() && r.type === 'file') {
+                        const mapKey = `${tab.id}_${i}`;
+                        if (!(window.__fileInputMap && window.__fileInputMap[mapKey])) {
+                            missingFiles.push(r.key);
+                        }
+                    }
+                });
+                if (missingFiles.length) {
+                    const names = missingFiles.map(n => `"${n}"`).join(', ');
+                    tab.response = { success: false, error: `File required for field${missingFiles.length > 1 ? 's' : ''}: ${names}`, status: 0, response_time_ms: 0, response_body: '', response_headers: {} };
+                    tab.responseTab = 'body';
+                    return;
+                }
+            }
+
             tab.isLoading = true;
             tab.response  = null;
 
@@ -371,12 +403,6 @@ function workspace() {
             if (qp.length) {
                 const qs = qp.map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&');
                 url += (url.includes('?') ? '&' : '?') + qs;
-            }
-
-            // Serialize form body if needed
-            let body = tab.request.body;
-            if (['form-data', 'x-www-form-urlencoded'].includes(tab.request.body_type)) {
-                body = JSON.stringify(tab.request.body_form.filter(r => r.key.trim()));
             }
 
             // Build effective headers — inject Content-Type for raw body if not already set
@@ -390,29 +416,79 @@ function workspace() {
                 }
             }
 
-            const payload = {
-                method:        tab.request.method,
-                url,
-                headers:       effectiveHeaders,
-                body_type:     tab.request.body_type,
-                body,
-                auth_type:     tab.request.auth_type,
-                auth_data:     tab.request.auth_data,
-                request_id:    tab.requestId,
-                collection_id: tab.request.collection_id,
-            };
+            const hasFileRows = tab.request.body_type === 'form-data' &&
+                tab.request.body_form.some(r => r.enabled && r.key.trim() && r.type === 'file');
 
             try {
-                const res  = await fetch('/run', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept':       'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify(payload),
-                });
+                let res;
+
+                if (hasFileRows) {
+                    // Send as multipart/form-data so the browser can attach File objects
+                    const fd = new FormData();
+                    fd.append('method',        tab.request.method);
+                    fd.append('url',           url);
+                    fd.append('body_type',     'form-data');
+                    fd.append('auth_type',     tab.request.auth_type);
+                    fd.append('auth_data',     JSON.stringify(tab.request.auth_data));
+                    fd.append('request_id',    tab.requestId    ?? '');
+                    fd.append('collection_id', tab.request.collection_id ?? '');
+                    fd.append('headers',       JSON.stringify(effectiveHeaders));
+
+                    let formIndex = 0;
+                    tab.request.body_form.forEach((row, originalIndex) => {
+                        if (!row.enabled || !row.key.trim()) return;
+                        fd.append(`body_form[${formIndex}][key]`,  row.key);
+                        fd.append(`body_form[${formIndex}][type]`, row.type || 'text');
+                        if (row.type === 'file') {
+                            const mapKey = `${tab.id}_${originalIndex}`;
+                            fd.append(`body_form_files[${formIndex}]`, window.__fileInputMap[mapKey]);
+                        } else {
+                            fd.append(`body_form[${formIndex}][value]`, row.value || '');
+                        }
+                        formIndex++;
+                    });
+
+                    res = await fetch('/run', {
+                        method: 'POST',
+                        headers: {
+                            'Accept':           'application/json',
+                            'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            // No Content-Type — browser sets multipart boundary automatically
+                        },
+                        body: fd,
+                    });
+                } else {
+                    // Standard JSON path (text-only form-data, raw, urlencoded, or none)
+                    let body = tab.request.body;
+                    if (['form-data', 'x-www-form-urlencoded'].includes(tab.request.body_type)) {
+                        body = JSON.stringify(tab.request.body_form.filter(r => r.key.trim()));
+                    }
+
+                    const payload = {
+                        method:        tab.request.method,
+                        url,
+                        headers:       effectiveHeaders,
+                        body_type:     tab.request.body_type,
+                        body,
+                        auth_type:     tab.request.auth_type,
+                        auth_data:     tab.request.auth_data,
+                        request_id:    tab.requestId,
+                        collection_id: tab.request.collection_id,
+                    };
+
+                    res = await fetch('/run', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':     'application/json',
+                            'Accept':           'application/json',
+                            'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                }
+
                 tab.response    = await res.json();
                 tab.responseTab = 'body';
             } catch (e) {
@@ -1033,8 +1109,52 @@ function workspace() {
         removeParam(i)   { this.activeTab?.request.params.splice(i, 1); },
         addHeader()      { this.activeTab?.request.headers.push({ key: '', value: '', enabled: true }); },
         removeHeader(i)  { this.activeTab?.request.headers.splice(i, 1); },
-        addFormRow()     { this.activeTab?.request.body_form.push({ key: '', value: '', enabled: true }); },
-        removeFormRow(i) { this.activeTab?.request.body_form.splice(i, 1); },
+        addFormRow()     { this.activeTab?.request.body_form.push({ key: '', value: '', enabled: true, type: 'text' }); },
+        removeFormRow(i) {
+            const tabId = this.activeTab?.id;
+            const len   = this.activeTab?.request.body_form.length ?? 0;
+            if (tabId) {
+                window.__fileInputMap = window.__fileInputMap || {};
+                delete window.__fileInputMap[`${tabId}_${i}`];
+                // Shift entries above the deleted index down by one
+                for (let j = i + 1; j < len; j++) {
+                    const old = `${tabId}_${j}`;
+                    if (window.__fileInputMap[old] !== undefined) {
+                        window.__fileInputMap[`${tabId}_${j - 1}`] = window.__fileInputMap[old];
+                        delete window.__fileInputMap[old];
+                    }
+                }
+                const updated = { ...this.fileSelectedMap };
+                delete updated[`${tabId}_${i}`];
+                for (let j = i + 1; j < len; j++) {
+                    const old = `${tabId}_${j}`;
+                    if (updated[old] !== undefined) {
+                        updated[`${tabId}_${j - 1}`] = updated[old];
+                        delete updated[old];
+                    }
+                }
+                this.fileSelectedMap = updated;
+            }
+            this.activeTab?.request.body_form.splice(i, 1);
+        },
+
+        storeFile(event, rowIndex) {
+            const tabId  = this.activeTab?.id;
+            const mapKey = `${tabId}_${rowIndex}`;
+            window.__fileInputMap = window.__fileInputMap || {};
+            const file = event.target.files[0] || null;
+            window.__fileInputMap[mapKey] = file;
+            this.fileSelectedMap = { ...this.fileSelectedMap, [mapKey]: !!file };
+        },
+
+        clearFileForRow(rowIndex) {
+            const tabId  = this.activeTab?.id;
+            const mapKey = `${tabId}_${rowIndex}`;
+            if (window.__fileInputMap) delete window.__fileInputMap[mapKey];
+            const updated = { ...this.fileSelectedMap };
+            delete updated[mapKey];
+            this.fileSelectedMap = updated;
+        },
 
         // ---- Style helpers ----
 

@@ -237,6 +237,7 @@
                     <thead>
                         <tr class="text-[9px] uppercase tracking-widest" style="color:var(--color-border-input);">
                             <th class="pb-2 w-5 text-left"></th>
+                            <th class="pb-2 pr-2 text-left" x-show="activeTab.request.body_type === 'form-data'" style="width:4.5rem;">Type</th>
                             <th class="pb-2 pr-2 text-left">Key</th>
                             <th class="pb-2 text-left">Value</th>
                             <th class="pb-2 w-5"></th>
@@ -249,6 +250,16 @@
                                     <input type="checkbox" x-model="r.enabled" @change="markDirty()"
                                            class="w-3 h-3 cursor-pointer" style="accent-color:var(--color-brand);"/>
                                 </td>
+                                {{-- Type dropdown (form-data only) --}}
+                                <td class="pr-1.5 py-0.5" x-show="activeTab.request.body_type === 'form-data'" style="width:4.5rem;">
+                                    <select x-model="r.type" @change="markDirty(); clearFileForRow(i)"
+                                            class="w-full rounded px-1.5 py-1.5 text-xs cursor-pointer focus:outline-none"
+                                            style="background:var(--color-bg-base); border:1px solid var(--color-border-subtle); color:var(--color-text-muted-2);"
+                                            onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'">
+                                        <option value="text">Text</option>
+                                        <option value="file">File</option>
+                                    </select>
+                                </td>
                                 <td class="pr-1.5 py-0.5">
                                     <input x-model="r.key" @input="markDirty()" type="text" placeholder="Key"
                                            class="w-full rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none"
@@ -256,15 +267,30 @@
                                            onfocus="this.style.borderColor='var(--color-border-input)'" onblur="this.style.borderColor='var(--color-border-subtle)'"/>
                                 </td>
                                 <td class="py-0.5">
-                                    <div class="var-field-wrap w-full"
-                                         @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
-                                        <div class="vf-back" x-html="highlightVars(r.value)"></div>
-                                        <input x-model="r.value" type="text" placeholder="Value"
-                                               @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
-                                               class="vf-real focus:outline-none"
-                                               onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
-                                               onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
-                                    </div>
+                                    {{-- File input --}}
+                                    <template x-if="activeTab.request.body_type === 'form-data' && r.type === 'file'">
+                                        <div class="flex items-center gap-2">
+                                            <input type="file"
+                                                   @change="storeFile($event, i)"
+                                                   class="text-xs focus:outline-none flex-1 min-w-0"
+                                                   style="color:var(--color-text-input);"/>
+                                            <span x-show="!fileSelectedMap[`${activeTab.id}_${i}`]"
+                                                  class="text-[9px] px-1.5 py-0.5 rounded font-semibold whitespace-nowrap flex-shrink-0"
+                                                  style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">required</span>
+                                        </div>
+                                    </template>
+                                    {{-- Text value input --}}
+                                    <template x-if="!(activeTab.request.body_type === 'form-data' && r.type === 'file')">
+                                        <div class="var-field-wrap w-full"
+                                             @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
+                                            <div class="vf-back" x-html="highlightVars(r.value)"></div>
+                                            <input x-model="r.value" type="text" placeholder="Value"
+                                                   @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                                   class="vf-real focus:outline-none"
+                                                   onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
+                                                   onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
+                                        </div>
+                                    </template>
                                 </td>
                                 <td class="pl-1.5 py-0.5 w-5">
                                     <button @click="removeFormRow(i)"

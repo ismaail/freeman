@@ -41,6 +41,8 @@ class RequestRunnerService
         ?int $requestId = null,
         ?int $environmentId = null,
         ?int $collectionId = null,
+        array $bodyFormRows = [],
+        array $bodyFormFiles = [],
     ): array {
         // Collection variables are the base; env variables override them (env support coming in v2).
         $collectionVars = $collectionId !== null
@@ -72,7 +74,7 @@ class RequestRunnerService
             $options['query'] = $queryParams;
         }
 
-        $this->applyBody($options, $bodyType, $body);
+        $this->applyBody($options, $bodyType, $body, $bodyFormRows, $bodyFormFiles);
 
         $start = microtime(true);
 
@@ -189,7 +191,7 @@ class RequestRunnerService
     // Body
     // -------------------------------------------------------------------------
 
-    private function applyBody(array &$options, ?string $bodyType, ?string $body): void
+    private function applyBody(array &$options, ?string $bodyType, ?string $body, array $bodyFormRows = [], array $bodyFormFiles = []): void
     {
         switch ($bodyType) {
             case 'raw':
@@ -197,7 +199,9 @@ class RequestRunnerService
                 break;
 
             case 'form-data':
-                $options['multipart'] = $this->parseAsMultipart($body);
+                $options['multipart'] = $bodyFormRows
+                    ? $this->buildMultipartFromRows($bodyFormRows, $bodyFormFiles)
+                    : $this->parseAsMultipart($body);
                 break;
 
             case 'x-www-form-urlencoded':
@@ -206,6 +210,38 @@ class RequestRunnerService
 
             // 'none' and null: no body options added
         }
+    }
+
+    /**
+     * Build Guzzle multipart array from structured rows + uploaded files.
+     * Used when /run is called as multipart/form-data (i.e. file upload path).
+     */
+    private function buildMultipartFromRows(array $rows, array $files): array
+    {
+        $parts = [];
+
+        foreach ($rows as $i => $row) {
+            if (empty($row['key'])) {
+                continue;
+            }
+
+            if (($row['type'] ?? 'text') === 'file') {
+                if (isset($files[$i])) {
+                    $parts[] = [
+                        'name'     => $row['key'],
+                        'contents' => fopen($files[$i]->getRealPath(), 'r'),
+                        'filename' => $files[$i]->getClientOriginalName(),
+                    ];
+                }
+            } else {
+                $parts[] = [
+                    'name'     => $row['key'],
+                    'contents' => (string) ($row['value'] ?? ''),
+                ];
+            }
+        }
+
+        return $parts;
     }
 
     /**

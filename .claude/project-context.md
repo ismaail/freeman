@@ -47,6 +47,7 @@ _This file is auto-imported by CLAUDE.md. Keep it updated after every feature._
 | headers | json nullable | Array of {key, value, enabled} |
 | body_type | enum nullable | none, raw, form-data, x-www-form-urlencoded |
 | body | text nullable | Raw body content |
+| body_form | json nullable | Array of {key, value, enabled, type} where type = 'text' \| 'file' |
 | auth_type | enum nullable | none, bearer, basic, api_key |
 | auth_data | json nullable | Stores token/credentials |
 | created_at / updated_at | timestamps | |
@@ -152,6 +153,7 @@ DELETE /admin/users/{id}            → delete user
 | Collections + folders | ✅ Done |
 | Saved request CRUD (backend) | ✅ Done |
 | Request builder UI | ✅ Done |
+| File upload in form-data body | ✅ Done |
 | Request execution (Guzzle proxy) | ✅ Done |
 | Collection variables (`{{VAR}}` substitution) | ✅ Done |
 | Shared collections (all users) | ✅ Done |

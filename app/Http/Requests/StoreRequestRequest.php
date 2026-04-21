@@ -33,8 +33,9 @@ class StoreRequestRequest extends FormRequest
             'body'          => ['nullable', 'string'],
             'body_form'             => ['nullable', 'array'],
             'body_form.*.key'       => ['nullable', 'string', 'max:255'],
-            'body_form.*.value'     => ['nullable', 'string', 'max:1000'],
+            'body_form.*.value'     => ['nullable', 'string', 'max:10000'],
             'body_form.*.enabled'   => ['nullable', 'boolean'],
+            'body_form.*.type'      => ['nullable', Rule::in(['text', 'file'])],
             'auth_type'     => ['nullable', Rule::in(['none', 'bearer', 'basic', 'api_key'])],
             'auth_data'     => ['nullable', 'array'],
         ];

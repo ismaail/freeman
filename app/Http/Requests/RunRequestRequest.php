@@ -19,14 +19,18 @@ class RunRequestRequest extends FormRequest
             'url'            => ['required', 'string', 'max:2048'],
             'request_id'     => ['nullable', 'integer'],
             'environment_id' => ['nullable', 'integer'],
-            'headers'       => ['nullable', 'array'],
+            'headers'           => ['nullable'],   // array from JSON; JSON string when sent as FormData
             'headers.*.key'     => ['nullable', 'string', 'max:255'],
             'headers.*.value'   => ['nullable', 'string', 'max:1000'],
             'headers.*.enabled' => ['nullable', 'boolean'],
-            'body_type'     => ['nullable', Rule::in(['none', 'raw', 'form-data', 'x-www-form-urlencoded'])],
-            'body'          => ['nullable', 'string'],
-            'auth_type'     => ['nullable', Rule::in(['none', 'bearer', 'basic', 'api_key'])],
-            'auth_data'     => ['nullable', 'array'],
+            'body_type'         => ['nullable', Rule::in(['none', 'raw', 'form-data', 'x-www-form-urlencoded'])],
+            'body'              => ['nullable', 'string'],
+            'body_form'             => ['nullable', 'array'],
+            'body_form.*.key'       => ['nullable', 'string', 'max:255'],
+            'body_form.*.value'     => ['nullable', 'string', 'max:10000'],
+            'body_form.*.type'      => ['nullable', Rule::in(['text', 'file'])],
+            'auth_type'         => ['nullable', Rule::in(['none', 'bearer', 'basic', 'api_key'])],
+            'auth_data'         => ['nullable'],  // array from JSON; JSON string when sent as FormData
         ];
     }
 }
