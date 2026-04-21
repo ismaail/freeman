@@ -302,14 +302,18 @@ function workspace() {
                     name:          d.name          || 'Untitled',
                     method:        d.method        || 'GET',
                     url:           d.url           || '',
-                    params:        [{ key: '', value: '', enabled: true }],
+                    params:        Array.isArray(d.params) && d.params.length
+                                       ? d.params
+                                       : [{ key: '', value: '', enabled: true }],
                     headers:       Array.isArray(d.headers) && d.headers.length
                                        ? d.headers
                                        : [{ key: '', value: '', enabled: true }],
                     body_type:     d.body_type     || 'none',
                     raw_body_type: d.raw_body_type || 'json',
                     body:          d.body          || '',
-                    body_form:     [{ key: '', value: '', enabled: true }],
+                    body_form:     Array.isArray(d.body_form) && d.body_form.length
+                                       ? d.body_form
+                                       : [{ key: '', value: '', enabled: true }],
                     auth_type:     d.auth_type     || 'none',
                     auth_data: {
                         token:    ad.token    || '',
@@ -482,10 +486,12 @@ function workspace() {
                         url:           tab.request.url,
                         collection_id: this.saveModal.collectionId,
                         folder_id:     this.saveModal.folderId || null,
+                        params:        tab.request.params.filter(p => p.key.trim()),
                         headers:       tab.request.headers.filter(h => h.key.trim()),
                         body_type:     tab.request.body_type,
                         raw_body_type: tab.request.raw_body_type,
                         body:          tab.request.body,
+                        body_form:     tab.request.body_form.filter(r => r.key.trim()),
                         auth_type:     tab.request.auth_type,
                         auth_data:     tab.request.auth_data,
                     }),
@@ -530,10 +536,12 @@ function workspace() {
                         name:          tab.request.name,
                         method:        tab.request.method,
                         url:           tab.request.url,
+                        params:        tab.request.params.filter(p => p.key.trim()),
                         headers:       tab.request.headers.filter(h => h.key.trim()),
                         body_type:     tab.request.body_type,
                         raw_body_type: tab.request.raw_body_type,
                         body:          tab.request.body,
+                        body_form:     tab.request.body_form.filter(r => r.key.trim()),
                         auth_type:     tab.request.auth_type,
                         auth_data:     tab.request.auth_data,
                     }),

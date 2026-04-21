@@ -15,10 +15,12 @@ class Request extends Model
         'name',
         'method',
         'url',
+        'params',
         'headers',
         'body_type',
         'raw_body_type',
         'body',
+        'body_form',
         'auth_type',
         'auth_data',
     ];
@@ -26,7 +28,9 @@ class Request extends Model
     protected function casts(): array
     {
         return [
-            'headers' => 'array',
+            'params'    => 'array',
+            'headers'   => 'array',
+            'body_form' => 'array',
             'auth_data' => 'array',
         ];
     }
