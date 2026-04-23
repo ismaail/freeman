@@ -263,9 +263,7 @@ function workspace() {
                 const activeReqId = localStorage.getItem('freeman_active_tab') || '';
                 if (!saved.length) return;
 
-                for (const requestId of saved) {
-                    await this.openRequest(requestId);
-                }
+                await Promise.all(saved.map(id => this.openRequest(id)));
 
                 if (activeReqId) {
                     const tab = this.tabs.find(t => String(t.requestId) === activeReqId);
