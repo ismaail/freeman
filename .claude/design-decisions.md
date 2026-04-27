@@ -77,6 +77,21 @@ _This file is auto-imported by CLAUDE.md. Log every significant architectural de
 
 ---
 
+## DD-014 — Alpine.js split into Alpine.store + Alpine.data components
+**Decision:** Refactored the monolithic `workspace()` Alpine.js function (~1490 lines in a single Blade partial) into a shared `Alpine.store('workspace')` backed by six focused `Alpine.data()` components, each in its own file under `public/js/`.
+**Components:**
+- `Alpine.store('workspace')` — shared state (tabs, collections, environments) + core methods (load, openRequest, persistTabs)
+- `workspaceShell` — root layout component: tab bar actions, env switching, Ctrl+S dispatch
+- `sidebarComponent` — sidebar UI state, collection/folder CRUD, import/export
+- `requestBuilderComponent` — request/response panel: send, URL highlight, var autocomplete, file upload
+- `saveModalComponent` — save-request modal and save/PATCH logic
+- `collectionVarsModalComponent` — collection variables modal
+**Reason:** The monolithic approach made it impossible to navigate or reason about the code. Separate components establish clear ownership of state and enforce explicit cross-component contracts (via `Alpine.store` reads and `window.dispatchEvent` for sibling communication).
+**Cross-component events:** `freeman:save-request` (shell/builder → saveModal), `freeman:open-collection-vars` (sidebar → collectionVarsModal), `freeman:tab-closed` (shell → requestBuilder for fileSelectedMap cleanup).
+**File locations:** `public/js/` (not `resources/js/`) because DD-003 means no build step — files are served directly via `asset()`.
+
+---
+
 ## DD-012 — Collections shared across all users
 **Decision:** Collections (and the requests/folders/variables inside them) are visible and editable by every authenticated user. The `user_id` column on `collections` and `requests` is retained as an audit "created_by" field but is not used for access control.
 **Reason:** Teams working on the same instance need to collaborate on the same API collections. Per-user isolation made sense for personal tooling but is a blocker for team use. Environments and request history remain per-user (personal state).

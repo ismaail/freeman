@@ -66,7 +66,7 @@ php artisan test --filter TestName
 - **Repository pattern** for all DB queries
 - **Form Requests** for all validation
 - One Blade layout: `resources/views/layouts/app.blade.php`
-- Alpine.js components defined inline in Blade views (no separate JS files unless complex)
+- Alpine.js workspace components live in `public/js/` (see DD-014): store + one file per component. Simple one-off UI state (e.g. a dropdown toggle) stays inline in Blade
 - All responses from `RequestRunnerService` stored in `request_logs` table for history
 - Use named routes everywhere
 - PHPUnit for all tests — test DB is in-memory SQLite (configured in `phpunit.xml`)
