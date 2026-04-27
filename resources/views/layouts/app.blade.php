@@ -7,6 +7,12 @@
     <title>{{ config('app.name', 'Freeman') }}@hasSection('title') — @yield('title')@endif</title>
     <link rel="icon" type="image/png" href="{{ asset('images/Freeman-logo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('js/freeman-utils.js') }}"></script>
+    <script src="{{ asset('js/freeman-store.js') }}"></script>
+    <script src="{{ asset('js/freeman-shell.js') }}"></script>
+    <script src="{{ asset('js/freeman-sidebar.js') }}"></script>
+    <script src="{{ asset('js/freeman-request-builder.js') }}"></script>
+    <script src="{{ asset('js/freeman-modals.js') }}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         /* ── Freeman Design Tokens ──────────────────────────────── */

@@ -1,7 +1,8 @@
 {{-- ============================================================
      SIDEBAR
 ============================================================ --}}
-<aside class="flex-shrink-0 flex flex-col"
+<aside x-data="sidebarComponent()"
+       class="flex-shrink-0 flex flex-col"
        style="width:260px; background:var(--color-bg-surface); border-right:1px solid var(--color-border-subtle);">
 
     {{-- New Request button --}}

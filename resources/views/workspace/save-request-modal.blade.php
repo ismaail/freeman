@@ -1,7 +1,8 @@
 {{-- ================================================================
      SAVE REQUEST TO COLLECTION MODAL
 ================================================================ --}}
-<div x-show="saveModal.open"
+<div x-data="saveModalComponent()"
+     x-show="saveModal.open"
      x-cloak
      class="fixed inset-0 z-50 flex items-center justify-center"
      style="background:rgba(0,0,0,0.6);"

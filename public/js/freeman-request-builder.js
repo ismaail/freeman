@@ -1,0 +1,560 @@
+// freeman-request-builder.js
+// requestBuilderComponent — request/response panel state and logic.
+// Mounted on the wrapper div that contains workspace/request-builder.blade.php.
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('requestBuilderComponent', () => ({
+
+        // ── State ──────────────────────────────────────────────────────────
+        fileSelectedMap: {},
+        urlFocused:      false,
+        responseCopied:  false,
+        splitPct:        parseFloat(localStorage.getItem('freeman_split_pct') || '42'),
+        varTooltip:      { show: false, text: '', x: 0, y: 0, isUndef: false },
+        varAc:           { show: false, suggestions: [], x: 0, y: 0, anchor: null },
+
+        // ── Store proxies ──────────────────────────────────────────────────
+        get activeTab() { return Alpine.store('workspace').activeTab; },
+
+        get responseDetectedType() {
+            if (!this.activeTab?.response?.response_headers) return 'text';
+            return detectContentType(this.activeTab.response.response_headers);
+        },
+        get filledParamCount() {
+            return (this.activeTab?.request.params || []).filter(p => p.key.trim()).length;
+        },
+        get filledHeaderCount() {
+            return (this.activeTab?.request.headers || []).filter(h => h.key.trim()).length;
+        },
+
+        // ── Init ──────────────────────────────────────────────────────────
+        init() {
+            // Clean up fileSelectedMap when a tab is closed by the shell
+            window.addEventListener('freeman:tab-closed', (e) => {
+                const tabId   = e.detail.tabId;
+                const updated = { ...this.fileSelectedMap };
+                Object.keys(updated).filter(k => k.startsWith(tabId + '_')).forEach(k => delete updated[k]);
+                this.fileSelectedMap = updated;
+            });
+        },
+
+        // ── Dirty tracking ─────────────────────────────────────────────────
+        markDirty() {
+            const tab = this.activeTab;
+            if (!tab || tab.savedSnapshot === null) return;
+            tab.isDirty = JSON.stringify(tab.request) !== tab.savedSnapshot;
+        },
+
+        // ── Save (delegates to saveModalComponent via window event) ────────
+        saveRequest() {
+            window.dispatchEvent(new CustomEvent('freeman:save-request'));
+        },
+
+        // ── Send ──────────────────────────────────────────────────────────
+        async sendRequest() {
+            const tab = this.activeTab;
+            if (!tab || !tab.request.url.trim() || tab.isLoading) return;
+
+            if (tab.request.body_type === 'form-data') {
+                const missingFiles = [];
+                tab.request.body_form.forEach((r, i) => {
+                    if (r.enabled && r.key.trim() && r.type === 'file') {
+                        const mapKey = `${tab.id}_${i}`;
+                        if (!(window.__fileInputMap && window.__fileInputMap[mapKey])) {
+                            missingFiles.push(r.key);
+                        }
+                    }
+                });
+                if (missingFiles.length) {
+                    const names = missingFiles.map(n => `"${n}"`).join(', ');
+                    tab.response = { success: false, error: `File required for field${missingFiles.length > 1 ? 's' : ''}: ${names}`, status: 0, response_time_ms: 0, response_body: '', response_headers: {} };
+                    tab.responseTab = 'body';
+                    return;
+                }
+            }
+
+            tab.isLoading = true;
+            tab.response  = null;
+
+            let url = tab.request.url;
+            const qp = tab.request.params.filter(p => p.enabled && p.key.trim());
+            if (qp.length) {
+                const qs = qp.map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&');
+                url += (url.includes('?') ? '&' : '?') + qs;
+            }
+
+            let effectiveHeaders = tab.request.headers.filter(h => h.key.trim());
+            if (tab.request.body_type === 'raw') {
+                const hasContentType = effectiveHeaders.some(h => h.key.toLowerCase() === 'content-type');
+                if (!hasContentType) {
+                    const ctMap = { text: 'text/plain', json: 'application/json', javascript: 'application/javascript', xml: 'application/xml', html: 'text/html' };
+                    const ct = ctMap[tab.request.raw_body_type] ?? 'application/json';
+                    effectiveHeaders = [{ key: 'Content-Type', value: ct, enabled: true }, ...effectiveHeaders];
+                }
+            }
+
+            const hasFileRows = tab.request.body_type === 'form-data' &&
+                tab.request.body_form.some(r => r.enabled && r.key.trim() && r.type === 'file');
+
+            try {
+                let res;
+
+                if (hasFileRows) {
+                    const fd = new FormData();
+                    fd.append('method',        tab.request.method);
+                    fd.append('url',           url);
+                    fd.append('body_type',     'form-data');
+                    fd.append('auth_type',     tab.request.auth_type);
+                    fd.append('auth_data',     JSON.stringify(tab.request.auth_data));
+                    fd.append('request_id',    tab.requestId    ?? '');
+                    fd.append('collection_id', tab.request.collection_id ?? '');
+                    fd.append('headers',       JSON.stringify(effectiveHeaders));
+
+                    let formIndex = 0;
+                    tab.request.body_form.forEach((row, originalIndex) => {
+                        if (!row.enabled || !row.key.trim()) return;
+                        fd.append(`body_form[${formIndex}][key]`,  row.key);
+                        fd.append(`body_form[${formIndex}][type]`, row.type || 'text');
+                        if (row.type === 'file') {
+                            const mapKey = `${tab.id}_${originalIndex}`;
+                            fd.append(`body_form_files[${formIndex}]`, window.__fileInputMap[mapKey]);
+                        } else {
+                            fd.append(`body_form[${formIndex}][value]`, row.value || '');
+                        }
+                        formIndex++;
+                    });
+
+                    res = await fetch('/run', {
+                        method: 'POST',
+                        headers: {
+                            'Accept':           'application/json',
+                            'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: fd,
+                    });
+                } else {
+                    let body = tab.request.body;
+                    if (['form-data', 'x-www-form-urlencoded'].includes(tab.request.body_type)) {
+                        body = JSON.stringify(tab.request.body_form.filter(r => r.key.trim()));
+                    }
+
+                    res = await fetch('/run', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':     'application/json',
+                            'Accept':           'application/json',
+                            'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({
+                            method:        tab.request.method,
+                            url,
+                            headers:       effectiveHeaders,
+                            body_type:     tab.request.body_type,
+                            body,
+                            auth_type:     tab.request.auth_type,
+                            auth_data:     tab.request.auth_data,
+                            request_id:    tab.requestId,
+                            collection_id: tab.request.collection_id,
+                        }),
+                    });
+                }
+
+                tab.response    = await res.json();
+                tab.responseTab = 'body';
+            } catch (e) {
+                tab.response = { success: false, error: e.message, status: 0, response_time_ms: 0, response_body: '', response_headers: {} };
+            } finally {
+                tab.isLoading = false;
+            }
+        },
+
+        // ── Split drag ─────────────────────────────────────────────────────
+        startSplitDrag(e) {
+            const container = this.$refs.splitContainer;
+            const onMove = (mv) => {
+                const rect = container.getBoundingClientRect();
+                const pct  = ((mv.clientY - rect.top) / rect.height) * 100;
+                this.splitPct = Math.min(Math.max(pct, 15), 80);
+            };
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup',  onUp);
+                localStorage.setItem('freeman_split_pct', this.splitPct.toFixed(1));
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup',   onUp);
+        },
+
+        // ── Key-value row helpers ──────────────────────────────────────────
+        addParam()       { this.activeTab?.request.params.push({ key: '', value: '', enabled: true }); },
+        removeParam(i)   { this.activeTab?.request.params.splice(i, 1); },
+        addHeader()      { this.activeTab?.request.headers.push({ key: '', value: '', enabled: true }); },
+        removeHeader(i)  { this.activeTab?.request.headers.splice(i, 1); },
+        addFormRow()     { this.activeTab?.request.body_form.push({ key: '', value: '', enabled: true, type: 'text' }); },
+
+        removeFormRow(i) {
+            const tabId = this.activeTab?.id;
+            const len   = this.activeTab?.request.body_form.length ?? 0;
+            if (tabId) {
+                window.__fileInputMap = window.__fileInputMap || {};
+                delete window.__fileInputMap[`${tabId}_${i}`];
+                for (let j = i + 1; j < len; j++) {
+                    const old = `${tabId}_${j}`;
+                    if (window.__fileInputMap[old] !== undefined) {
+                        window.__fileInputMap[`${tabId}_${j - 1}`] = window.__fileInputMap[old];
+                        delete window.__fileInputMap[old];
+                    }
+                }
+                const updated = { ...this.fileSelectedMap };
+                delete updated[`${tabId}_${i}`];
+                for (let j = i + 1; j < len; j++) {
+                    const old = `${tabId}_${j}`;
+                    if (updated[old] !== undefined) {
+                        updated[`${tabId}_${j - 1}`] = updated[old];
+                        delete updated[old];
+                    }
+                }
+                this.fileSelectedMap = updated;
+            }
+            this.activeTab?.request.body_form.splice(i, 1);
+        },
+
+        storeFile(event, rowIndex) {
+            const tabId  = this.activeTab?.id;
+            const mapKey = `${tabId}_${rowIndex}`;
+            window.__fileInputMap = window.__fileInputMap || {};
+            const file = event.target.files[0] || null;
+            window.__fileInputMap[mapKey] = file;
+            this.fileSelectedMap = { ...this.fileSelectedMap, [mapKey]: !!file };
+        },
+
+        clearFileForRow(rowIndex) {
+            const tabId  = this.activeTab?.id;
+            const mapKey = `${tabId}_${rowIndex}`;
+            if (window.__fileInputMap) delete window.__fileInputMap[mapKey];
+            const updated = { ...this.fileSelectedMap };
+            delete updated[mapKey];
+            this.fileSelectedMap = updated;
+        },
+
+        // ── URL variable highlight ─────────────────────────────────────────
+        highlightUrl(url) {
+            if (!url) return '';
+            const vars = this.activeTab?.collectionVars ?? {};
+            return escHtml(url).replace(/\{\{([^}]*)\}\}/g, (match, key) => {
+                const k = key.trim();
+                if (k in vars) {
+                    return `<mark class="url-var url-var-ok" data-name="${escHtml(k)}" data-val="${escHtml(vars[k])}">{{${escHtml(key)}}}</mark>`;
+                }
+                return `<mark class="url-var url-var-err" data-name="${escHtml(k)}">{{${escHtml(key)}}}</mark>`;
+            });
+        },
+
+        highlightVars(text) { return this.highlightUrl(text); },
+
+        // ── Variable hover tooltip ─────────────────────────────────────────
+        onVarHover(event) {
+            const wrap  = event.currentTarget;
+            const input = wrap.querySelector('input, textarea');
+            if (!input) return;
+
+            input.style.pointerEvents = 'none';
+            const el = document.elementFromPoint(event.clientX, event.clientY);
+            input.style.pointerEvents = '';
+
+            if (el && el.classList && el.classList.contains('url-var')) {
+                const isUndef = el.classList.contains('url-var-err');
+                const rect    = el.getBoundingClientRect();
+                this.varTooltip = {
+                    show:    true,
+                    text:    isUndef ? '' : (el.dataset.val ?? ''),
+                    name:    el.dataset.name ?? '',
+                    x:       rect.left + rect.width / 2,
+                    y:       rect.top,
+                    isUndef,
+                };
+            } else {
+                this.varTooltip.show = false;
+            }
+        },
+
+        // ── Variable autocomplete ──────────────────────────────────────────
+        checkVarAc(event) {
+            const el = event.target;
+            if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+            const vars = this.activeTab?.collectionVars ?? {};
+            if (!Object.keys(vars).length) { this.varAc.show = false; return; }
+
+            const val    = el.value;
+            const pos    = el.selectionStart ?? val.length;
+            const before = val.slice(0, pos);
+            const openAt = before.lastIndexOf('{{');
+
+            if (openAt === -1 || before.slice(openAt + 2).includes('}}')) {
+                this.varAc.show = false;
+                return;
+            }
+
+            const query       = before.slice(openAt + 2).toLowerCase();
+            const suggestions = Object.keys(vars).filter(k => k.toLowerCase().includes(query));
+
+            if (!suggestions.length) { this.varAc.show = false; return; }
+
+            const rect         = el.getBoundingClientRect();
+            this.varAc.x       = rect.left;
+            this.varAc.y       = rect.bottom + 4;
+            this.varAc.suggestions = suggestions;
+            this.varAc.anchor  = el;
+            this.varAc.show    = true;
+        },
+
+        selectVarAc(name) {
+            const el = this.varAc.anchor;
+            if (!el) return;
+
+            const val    = el.value;
+            const pos    = el.selectionStart ?? val.length;
+            const before = val.slice(0, pos);
+            const openAt = before.lastIndexOf('{{');
+            const newVal = val.slice(0, openAt) + '{{' + name + '}}' + val.slice(pos);
+            const newPos = openAt + name.length + 4;
+
+            el.value = newVal;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            setTimeout(() => { el.focus(); el.setSelectionRange(newPos, newPos); }, 0);
+            this.varAc.show = false;
+        },
+
+        // ── Response body rendering ────────────────────────────────────────
+        renderResponseBody(body, headers) {
+            if (!body) return '<span style="color:var(--color-border-input);">— empty response —</span>';
+            const tab  = this.activeTab;
+            const type = (tab?.responseForceType !== 'auto' ? tab?.responseForceType : null)
+                ?? detectContentType(headers);
+            if (tab?.responseViewMode === 'raw')   return escHtml(body);
+            if (type === 'json')                   return this.highlightJson(body);
+            if (type === 'xml' || type === 'html') return this.highlightXml(body);
+            if (type === 'javascript')             return this.highlightJsEditor(body);
+            return escHtml(body);
+        },
+
+        async copyResponseBody() {
+            const body = this.activeTab?.response?.response_body;
+            if (!body) return;
+            try {
+                await navigator.clipboard.writeText(body);
+                this.responseCopied = true;
+                setTimeout(() => { this.responseCopied = false; }, 2000);
+            } catch {}
+        },
+
+        // ── Body content highlight (request editor) ────────────────────────
+        highlightBodyContent(text) {
+            if (!text) return '';
+            const type = this.activeTab?.request.raw_body_type;
+            if (type === 'json')                   return this.highlightJsonEditor(text);
+            if (type === 'xml' || type === 'html') return this.highlightXmlEditor(text);
+            if (type === 'javascript')             return this.highlightJsEditor(text);
+            return this.highlightVars(text);
+        },
+
+        formatBody() {
+            const tab = this.activeTab;
+            if (!tab) return;
+            const type = tab.request.raw_body_type;
+            const src  = tab.request.body ?? '';
+            if (type === 'json') {
+                try { tab.request.body = JSON.stringify(JSON.parse(src), null, 2); } catch {}
+            } else if (type === 'xml' || type === 'html') {
+                try {
+                    let depth = 0;
+                    tab.request.body = src
+                        .replace(/>\s*</g, '>\n<')
+                        .split('\n')
+                        .map(raw => {
+                            const line = raw.trim();
+                            if (!line) return null;
+                            if (/^<\//.test(line) || /^-->/.test(line)) depth = Math.max(0, depth - 1);
+                            const out = '  '.repeat(depth) + line;
+                            if (/^<[^/?!]/.test(line) && !line.endsWith('/>') && !/<\//.test(line)) depth++;
+                            return out;
+                        })
+                        .filter(l => l !== null)
+                        .join('\n');
+                } catch {}
+            }
+        },
+
+        // ── JSON / XML / JS highlighters (request editor) ─────────────────
+        highlightJsonEditor(body) {
+            if (!body) return '';
+            const len = body.length;
+            let html = '';
+            let i = 0;
+            while (i < len) {
+                const ch = body[i];
+                if (ch === '"') {
+                    let j = i + 1;
+                    while (j < len) {
+                        if (body[j] === '\\') { j += 2; continue; }
+                        if (body[j] === '"')  { j++; break; }
+                        j++;
+                    }
+                    const token = body.slice(i, j);
+                    let k = j;
+                    while (k < len && (body[k] === ' ' || body[k] === '\t' || body[k] === '\n' || body[k] === '\r')) k++;
+                    const isKey = body[k] === ':';
+                    html += isKey
+                        ? `<span class="json-key">${escHtml(token)}</span>`
+                        : `<span class="json-str">${escHtml(token)}</span>`;
+                    i = j;
+                } else if (body.startsWith('true', i)) {
+                    html += '<span class="json-bool">true</span>';  i += 4;
+                } else if (body.startsWith('false', i)) {
+                    html += '<span class="json-bool">false</span>'; i += 5;
+                } else if (body.startsWith('null', i)) {
+                    html += '<span class="json-null">null</span>';  i += 4;
+                } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+                    let j = i;
+                    if (body[j] === '-') j++;
+                    while (j < len && body[j] >= '0' && body[j] <= '9') j++;
+                    if (j < len && body[j] === '.') { j++; while (j < len && body[j] >= '0' && body[j] <= '9') j++; }
+                    if (j < len && (body[j] === 'e' || body[j] === 'E')) {
+                        j++;
+                        if (j < len && (body[j] === '+' || body[j] === '-')) j++;
+                        while (j < len && body[j] >= '0' && body[j] <= '9') j++;
+                    }
+                    html += `<span class="json-num">${body.slice(i, j)}</span>`;
+                    i = j;
+                } else {
+                    html += escHtml(ch);
+                    i++;
+                }
+            }
+            return html;
+        },
+
+        highlightXmlEditor(body) {
+            if (!body) return '';
+            const esc = escHtml(body);
+            return esc
+                .replace(/(&lt;!--[\s\S]*?--&gt;)/g,
+                    '<span class="xml-comment">$1</span>')
+                .replace(/(&lt;\?[\s\S]*?\?&gt;)/g,
+                    '<span class="xml-bracket">$1</span>')
+                .replace(
+                    /(&lt;\/?)([\w][\w:.-]*)((?:[^&]|&(?!gt;))*?)(\/?&gt;)/g,
+                    (_, open, tag, attrs, close) => {
+                        const coloredAttrs = attrs
+                            .replace(/([\w][\w:.-]*)=/g, '<span class="xml-attr">$1</span>=')
+                            .replace(/=("(?:[^"])*")/g,  '=<span class="xml-val">$1</span>');
+                        return '<span class="xml-bracket">' + open  + '</span>'
+                             + '<span class="xml-tag">'     + tag   + '</span>'
+                             + coloredAttrs
+                             + '<span class="xml-bracket">' + close + '</span>';
+                    }
+                );
+        },
+
+        highlightJsEditor(body) {
+            if (!body) return '';
+            const esc = escHtml(body);
+            return esc
+                .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="xml-comment">$1</span>')
+                .replace(/(\/\/[^\n]*)/g,        '<span class="xml-comment">$1</span>');
+        },
+
+        // ── JSON / XML highlighters (response viewer) ──────────────────────
+        highlightJson(body) {
+            let fmt;
+            try { fmt = JSON.stringify(JSON.parse(body), null, 2); }
+            catch { return '<span class="json-punct">' + escHtml(body) + '</span>'; }
+
+            let html = '';
+            let i    = 0;
+            const len = fmt.length;
+            while (i < len) {
+                const ch = fmt[i];
+                if (ch === '"') {
+                    let j = i + 1;
+                    while (j < len) {
+                        if (fmt[j] === '\\') { j += 2; continue; }
+                        if (fmt[j] === '"')  { j++; break; }
+                        j++;
+                    }
+                    const token = fmt.slice(i, j);
+                    let k = j;
+                    while (k < len && fmt[k] === ' ') k++;
+                    const isKey = fmt[k] === ':';
+                    html += isKey
+                        ? `<span class="json-key">${escHtml(token)}</span>`
+                        : `<span class="json-str">${escHtml(token)}</span>`;
+                    i = j;
+                } else if (fmt.startsWith('true', i)) {
+                    html += '<span class="json-bool">true</span>';  i += 4;
+                } else if (fmt.startsWith('false', i)) {
+                    html += '<span class="json-bool">false</span>'; i += 5;
+                } else if (fmt.startsWith('null', i)) {
+                    html += '<span class="json-null">null</span>';  i += 4;
+                } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+                    let j = i;
+                    if (fmt[j] === '-') j++;
+                    while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
+                    if (j < len && fmt[j] === '.') { j++; while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++; }
+                    if (j < len && (fmt[j] === 'e' || fmt[j] === 'E')) {
+                        j++;
+                        if (j < len && (fmt[j] === '+' || fmt[j] === '-')) j++;
+                        while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
+                    }
+                    html += `<span class="json-num">${fmt.slice(i, j)}</span>`;
+                    i = j;
+                } else {
+                    html += escHtml(ch);
+                    i++;
+                }
+            }
+            return html;
+        },
+
+        highlightXml(body) {
+            let fmt;
+            try {
+                let depth = 0;
+                fmt = body
+                    .replace(/>\s*</g, '>\n<')
+                    .split('\n')
+                    .map(raw => {
+                        const line = raw.trim();
+                        if (!line) return null;
+                        if (/^<\//.test(line) || /^-->/.test(line)) depth = Math.max(0, depth - 1);
+                        const out = '  '.repeat(depth) + line;
+                        if (/^<[^/?!]/.test(line) && !line.endsWith('/>') && !/<\//.test(line)) depth++;
+                        return out;
+                    })
+                    .filter(l => l !== null)
+                    .join('\n');
+            } catch { fmt = body; }
+
+            const esc = escHtml(fmt);
+            return esc
+                .replace(/(&lt;!--[\s\S]*?--&gt;)/g,
+                    '<span class="xml-comment">$1</span>')
+                .replace(/(&lt;\?[\s\S]*?\?&gt;)/g,
+                    '<span class="xml-bracket">$1</span>')
+                .replace(
+                    /(&lt;\/?)([\w][\w:.-]*)((?:[^&]|&(?!gt;))*?)(\/?&gt;)/g,
+                    (_, open, tag, attrs, close) => {
+                        const coloredAttrs = attrs
+                            .replace(/([\w][\w:.-]*)=/g, '<span class="xml-attr">$1</span>=')
+                            .replace(/=("(?:[^"])*")/g,  '=<span class="xml-val">$1</span>');
+                        return '<span class="xml-bracket">' + open  + '</span>'
+                             + '<span class="xml-tag">'     + tag   + '</span>'
+                             + coloredAttrs
+                             + '<span class="xml-bracket">' + close + '</span>';
+                    }
+                );
+        },
+    }));
+});
