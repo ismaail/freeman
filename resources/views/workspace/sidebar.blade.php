@@ -130,6 +130,15 @@
                                      @click.outside="collectionMenuOpen = null"
                                      class="absolute right-0 top-full mt-1 w-40 rounded shadow-2xl z-50 py-1"
                                      style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                                    <button @click="openAddRequestModal(col.id)"
+                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                            style="color:var(--color-text-primary)"
+                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                                        </svg>
+                                        Add Request
+                                    </button>
                                     <button @click="openNewFolderModal(col.id); toggleCollection(col.id); collectionMenuOpen = null"
                                             class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
                                             style="color:var(--color-text-primary)"
@@ -239,6 +248,15 @@
                                                      x-cloak
                                                      class="absolute right-0 top-full mt-1 w-44 rounded shadow-2xl z-50 py-1"
                                                      style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                                                    <button @click="openAddRequestModal(item.collectionId, item.folder.id)"
+                                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                            style="color:var(--color-text-primary)"
+                                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                                                        </svg>
+                                                        Add Request
+                                                    </button>
                                                     <button @click="openNewFolderModal(item.collectionId, item.folder.id, item.folder.name)"
                                                             class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
                                                             style="color:var(--color-text-primary)"
@@ -412,6 +430,44 @@
                         onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
                     <span x-show="!renameCollectionModal.loading">Save</span>
                     <span x-show="renameCollectionModal.loading">Saving…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Add Request Modal --}}
+    <div x-show="addRequestModal.open"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         style="background:rgba(0,0,0,0.6);"
+         @keydown.escape.window="addRequestModal.open = false">
+        <div class="w-80 rounded-lg shadow-2xl p-5"
+             style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);"
+             @click.stop>
+            <h3 class="text-sm font-semibold mb-4" style="color:var(--color-text-input)">New Request</h3>
+            <input x-ref="addRequestNameInput"
+                   x-model="addRequestModal.name"
+                   @keydown.enter="createRequestInCollection()"
+                   type="text"
+                   placeholder="Request name"
+                   class="w-full px-3 py-2 rounded text-sm outline-none"
+                   style="background:var(--color-bg-input); border:1px solid var(--color-border-input); color:var(--color-text-input);"
+                   x-init="$watch('addRequestModal.open', v => { if (v) $nextTick(() => $refs.addRequestNameInput && $refs.addRequestNameInput.focus()) })">
+            <div x-show="addRequestModal.error" x-cloak class="mt-2 text-[11px]" style="color:var(--color-danger)" x-text="addRequestModal.error"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="addRequestModal.open = false"
+                        class="px-3 py-1.5 rounded text-xs transition-colors"
+                        style="color:var(--color-text-muted-4); background:transparent;"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    Cancel
+                </button>
+                <button @click="createRequestInCollection()"
+                        :disabled="addRequestModal.loading || !addRequestModal.name.trim()"
+                        class="px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-50"
+                        style="background:var(--color-brand);"
+                        onmouseover="this.style.background='var(--color-brand-hover)'" onmouseout="this.style.background='var(--color-brand)'">
+                    <span x-show="!addRequestModal.loading">Create</span>
+                    <span x-show="addRequestModal.loading">Creating…</span>
                 </button>
             </div>
         </div>

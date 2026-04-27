@@ -19,6 +19,7 @@ document.addEventListener('alpine:init', () => {
         folderModal:            { open: false, collectionId: null, parentFolderId: null, parentFolderName: null, name: '', loading: false, error: null },
         renameFolderModal:      { open: false, folderId: null, collectionId: null, name: '', loading: false, error: null },
         renameCollectionModal:  { open: false, collectionId: null, name: '', loading: false, error: null },
+        addRequestModal:        { open: false, collectionId: null, folderId: null, name: '', loading: false, error: null },
         folderMenuOpen:         null,
 
         // ── Store proxies ──────────────────────────────────────────────────
@@ -286,6 +287,57 @@ document.addEventListener('alpine:init', () => {
                 this.importNotification = { ok: false, msg: 'Network error during import.' };
             }
             setTimeout(() => { this.importNotification = null; }, 4000);
+        },
+
+        // ── Add request directly to collection / folder ───────────────────
+        openAddRequestModal(collectionId, folderId = null) {
+            this.addRequestModal = { open: true, collectionId, folderId, name: '', loading: false, error: null };
+            this.collectionMenuOpen = null;
+            this.folderMenuOpen     = null;
+        },
+
+        async createRequestInCollection() {
+            const name = this.addRequestModal.name.trim();
+            if (!name) return;
+            this.addRequestModal.loading = true;
+            this.addRequestModal.error   = null;
+            try {
+                const res  = await fetch('/requests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':     'application/json',
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        name,
+                        method:        'GET',
+                        url:           '',
+                        collection_id: this.addRequestModal.collectionId,
+                        folder_id:     this.addRequestModal.folderId || null,
+                        body_type:     'none',
+                        auth_type:     'none',
+                    }),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    const { collectionId, folderId } = this.addRequestModal;
+                    this.addRequestModal.open = false;
+                    await Alpine.store('workspace').loadCollections();
+                    this.expandedCollections = { ...this.expandedCollections, [collectionId]: true };
+                    if (folderId) {
+                        this.expandedFolders = { ...this.expandedFolders, [folderId]: true };
+                    }
+                    Alpine.store('workspace').openRequest(json.data.id);
+                } else {
+                    this.addRequestModal.error = json.message || 'Could not create request.';
+                }
+            } catch (e) {
+                this.addRequestModal.error = 'Network error.';
+            } finally {
+                this.addRequestModal.loading = false;
+            }
         },
 
         // ── Delete collection ──────────────────────────────────────────────
