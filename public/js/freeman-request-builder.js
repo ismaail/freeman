@@ -50,6 +50,59 @@ document.addEventListener('alpine:init', () => {
             window.dispatchEvent(new CustomEvent('freeman:save-request'));
         },
 
+        // ── Refresh (re-fetches saved request from server) ────────────────
+        async refreshRequest() {
+            const tab = this.activeTab;
+            const id  = tab?.requestId;
+            if (!id) return;
+            if (tab.isDirty && !confirm('You have unsaved changes. Refresh anyway and lose them?')) return;
+
+            try {
+                const res  = await fetch(`/requests/${id}`, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                const json = await res.json();
+                const d    = json.data;
+                const ad   = d.auth_data || {};
+                const store = Alpine.store('workspace');
+
+                if (d.collection_id) {
+                    await store.loadCollectionVarsForTab(tab, d.collection_id);
+                }
+
+                tab.request = {
+                    collection_id: d.collection_id || null,
+                    name:          d.name          || 'Untitled',
+                    method:        d.method        || 'GET',
+                    url:           d.url           || '',
+                    params:        Array.isArray(d.params) && d.params.length
+                                       ? d.params
+                                       : [{ key: '', value: '', enabled: true }],
+                    headers:       Array.isArray(d.headers) && d.headers.length
+                                       ? d.headers
+                                       : [{ key: '', value: '', enabled: true }],
+                    body_type:     d.body_type     || 'none',
+                    raw_body_type: d.raw_body_type || 'json',
+                    body:          d.body          || '',
+                    body_form:     Array.isArray(d.body_form) && d.body_form.length
+                                       ? d.body_form.map(r => ({ ...r, type: r.type || 'text' }))
+                                       : [{ key: '', value: '', enabled: true, type: 'text' }],
+                    auth_type:     d.auth_type     || 'none',
+                    auth_data: {
+                        token:    ad.token    || '',
+                        username: ad.username || '',
+                        password: ad.password || '',
+                        key:      ad.key      || '',
+                        value:    ad.value    || '',
+                        in:       ad.in       || 'header',
+                    },
+                };
+                tab.savedSnapshot = JSON.stringify(tab.request);
+                tab.isDirty       = false;
+                store.persistTabs();
+            } catch (e) {
+                console.error('refreshRequest:', e);
+            }
+        },
+
         // ── Send ──────────────────────────────────────────────────────────
         async sendRequest() {
             const tab = this.activeTab;

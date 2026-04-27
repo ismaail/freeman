@@ -8,6 +8,17 @@
            type="text"
            placeholder="Request name"
            class="flex-1 bg-transparent text-sm font-semibold text-white placeholder-gray-600 focus:outline-none"/>
+    {{-- Refresh: reloads saved request data from server --}}
+    <button x-show="activeTab?.requestId"
+            x-cloak
+            @click="refreshRequest()"
+            class="px-3 py-1 rounded text-xs transition-colors flex-shrink-0"
+            style="border:1px solid var(--color-border-input); color:var(--color-text-muted-1);"
+            onmouseover="this.style.borderColor='var(--color-text-muted-3)'; this.style.color='#fff'"
+            onmouseout="this.style.borderColor='var(--color-border-input)'; this.style.color='var(--color-text-muted-1)'"
+            title="Reload from server">
+        Refresh
+    </button>
     <button @click="saveRequest()"
             class="px-3 py-1 rounded text-xs transition-colors flex-shrink-0"
             style="border:1px solid var(--color-border-input); color:var(--color-text-muted-1);"
