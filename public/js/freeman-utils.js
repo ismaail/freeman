@@ -50,6 +50,8 @@ function detectContentType(headers) {
     if (v.includes('html'))       return 'html';
     if (v.includes('xml'))        return 'xml';
     if (v.includes('javascript')) return 'javascript';
+    if (v.startsWith('image/'))   return 'image';
+    if (v.startsWith('audio/'))   return 'audio';
     return 'text';
 }
 

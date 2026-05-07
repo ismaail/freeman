@@ -86,10 +86,12 @@
 
             {{-- Body view controls --}}
             <div class="ml-auto flex items-center gap-2 pr-3"
-                 :style="activeTab?.responseTab === 'body' ? 'opacity:1; pointer-events:auto;' : 'opacity:0; pointer-events:none;'">
+                 :style="activeTab?.responseTab === 'body' ? 'opacity:1; pointer-events:auto;' : 'opacity:0; pointer-events:none;'"
+                 x-data="{ get isBinary() { const t = detectContentType(activeTab?.response?.response_headers); return t === 'image' || t === 'audio'; } }">
 
-                {{-- Pretty / Raw pill --}}
+                {{-- Pretty / Raw pill (hidden for binary content) --}}
                 <div class="flex rounded overflow-hidden"
+                     x-show="!isBinary"
                      style="border:1px solid var(--color-border-subtle);">
                     <button @click="activeTab.responseViewMode = 'pretty'"
                             class="px-2.5 py-1 text-[10px] font-medium transition-colors"
@@ -104,8 +106,8 @@
                                 : 'color:var(--color-text-muted-5);'">Raw</button>
                 </div>
 
-                {{-- Format dropdown --}}
-                <div class="relative" x-data="{ fmtOpen: false }">
+                {{-- Format dropdown (hidden for binary content) --}}
+                <div class="relative" x-show="!isBinary" x-data="{ fmtOpen: false }">
                     <button @click="fmtOpen = !fmtOpen"
                             class="flex items-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium transition-colors"
                             style="border:1px solid var(--color-border-subtle); color:var(--color-text-muted-2); background:var(--color-bg-base);"
@@ -184,7 +186,9 @@
         <div class="flex-1 overflow-y-auto">
             {{-- Body tab --}}
             <div x-show="activeTab?.responseTab === 'body'">
-                <pre class="p-4 text-xs font-mono whitespace-pre-wrap break-all response-body"
+                <pre :class="detectContentType(activeTab?.response?.response_headers) === 'image' || detectContentType(activeTab?.response?.response_headers) === 'audio'
+                          ? 'p-4'
+                          : 'p-4 text-xs font-mono whitespace-pre-wrap break-all response-body'"
                      style="tab-size:2; line-height:1.65; color:var(--color-text-input);"
                      x-html="renderResponseBody(activeTab?.response?.response_body, activeTab?.response?.response_headers)"></pre>
             </div>

@@ -82,13 +82,18 @@ class RequestRunnerService
             $response = $client->request(strtoupper($method), $url, $options);
             $elapsed  = (int) round((microtime(true) - $start) * 1000);
 
+            $contentType = $response->getHeaderLine('Content-Type');
+            $isBinary    = str_starts_with($contentType, 'image/') || str_starts_with($contentType, 'audio/');
+            $body        = $isBinary ? base64_encode((string) $response->getBody()) : (string) $response->getBody();
+
             $result = [
-                'success'          => true,
-                'status'           => $response->getStatusCode(),
-                'response_headers' => $this->flattenHeaders($response->getHeaders()),
-                'response_body'    => (string) $response->getBody(),
-                'response_time_ms' => $elapsed,
-                'error'            => null,
+                'success'             => true,
+                'status'              => $response->getStatusCode(),
+                'response_headers'    => $this->flattenHeaders($response->getHeaders()),
+                'response_body'       => $body,
+                'response_is_binary'  => $isBinary,
+                'response_time_ms'    => $elapsed,
+                'error'               => null,
             ];
         } catch (ConnectException $e) {
             $elapsed = (int) round((microtime(true) - $start) * 1000);

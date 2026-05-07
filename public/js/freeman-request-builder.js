@@ -386,11 +386,25 @@ document.addEventListener('alpine:init', () => {
             const tab  = this.activeTab;
             const type = (tab?.responseForceType !== 'auto' ? tab?.responseForceType : null)
                 ?? detectContentType(headers);
+            if (type === 'image') {
+                const mime = this._getMimeFromHeaders(headers) || 'image/png';
+                return `<img src="data:${mime};base64,${body}" class="max-w-full h-auto block" alt="image response" style="border-radius:4px;">`;
+            }
+            if (type === 'audio') {
+                const mime = this._getMimeFromHeaders(headers) || 'audio/mpeg';
+                return `<audio controls class="w-full mt-1"><source src="data:${mime};base64,${body}" type="${mime}"></audio>`;
+            }
             if (tab?.responseViewMode === 'raw')   return escHtml(body);
             if (type === 'json')                   return this.highlightJson(body);
             if (type === 'xml' || type === 'html') return this.highlightXml(body);
             if (type === 'javascript')             return this.highlightJsEditor(body);
             return escHtml(body);
+        },
+
+        _getMimeFromHeaders(headers) {
+            if (!headers) return null;
+            const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type');
+            return entry ? entry[1].split(';')[0].trim() : null;
         },
 
         async copyResponseBody() {
