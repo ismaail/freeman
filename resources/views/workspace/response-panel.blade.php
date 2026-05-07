@@ -87,7 +87,10 @@
             {{-- Body view controls --}}
             <div class="ml-auto flex items-center gap-2 pr-3"
                  :style="activeTab?.responseTab === 'body' ? 'opacity:1; pointer-events:auto;' : 'opacity:0; pointer-events:none;'"
-                 x-data="{ get isBinary() { const t = detectContentType(activeTab?.response?.response_headers); return t === 'image' || t === 'audio'; } }">
+                 x-data="{
+                     get isBinary() { const t = detectContentType(activeTab?.response?.response_headers); return t === 'image' || t === 'audio'; },
+                     get isHtml()   { return detectContentType(activeTab?.response?.response_headers) === 'html'; }
+                 }">
 
                 {{-- Pretty / Raw pill (hidden for binary content) --}}
                 <div class="flex rounded overflow-hidden"
@@ -104,6 +107,13 @@
                             :style="activeTab?.responseViewMode === 'raw'
                                 ? 'background:var(--color-bg-elevated); color:var(--color-text-muted-1);'
                                 : 'color:var(--color-text-muted-5);'">Raw</button>
+                    <button x-show="isHtml"
+                            @click="activeTab.responseViewMode = 'preview'"
+                            class="px-2.5 py-1 text-[10px] font-medium transition-colors"
+                            style="border-left:1px solid var(--color-border-subtle);"
+                            :style="activeTab?.responseViewMode === 'preview'
+                                ? 'background:var(--color-bg-elevated); color:var(--color-text-muted-1);'
+                                : 'color:var(--color-text-muted-5);'">Preview</button>
                 </div>
 
                 {{-- Format dropdown (hidden for binary content) --}}
@@ -186,11 +196,17 @@
         <div class="flex-1 overflow-y-auto">
             {{-- Body tab --}}
             <div x-show="activeTab?.responseTab === 'body'">
-                <pre :class="detectContentType(activeTab?.response?.response_headers) === 'image' || detectContentType(activeTab?.response?.response_headers) === 'audio'
+                <pre x-show="!(activeTab?.responseViewMode === 'preview' && detectContentType(activeTab?.response?.response_headers) === 'html')"
+                     :class="detectContentType(activeTab?.response?.response_headers) === 'image' || detectContentType(activeTab?.response?.response_headers) === 'audio'
                           ? 'p-4'
                           : 'p-4 text-xs font-mono whitespace-pre-wrap break-all response-body'"
                      style="tab-size:2; line-height:1.65; color:var(--color-text-input);"
                      x-html="renderResponseBody(activeTab?.response?.response_body, activeTab?.response?.response_headers)"></pre>
+                <iframe x-show="activeTab?.responseViewMode === 'preview' && detectContentType(activeTab?.response?.response_headers) === 'html'"
+                        :srcdoc="activeTab?.response?.response_body"
+                        sandbox="allow-scripts allow-same-origin allow-forms"
+                        class="w-full border-0 block"
+                        style="min-height:500px;"></iframe>
             </div>
 
             {{-- Headers tab --}}
