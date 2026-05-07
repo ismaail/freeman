@@ -4,8 +4,6 @@
 
 No desktop install. No data leaves your network. Your team accesses it from any browser.
 
-![Freeman screenshot](docs/screenshot.png)
-
 ---
 
 ## Features
@@ -180,7 +178,7 @@ Freeman uses the **Postman Collection v2.1** format for both import and export, 
 | Rate limiting on request execution | ✅ Done |
 | Shared collections (all team members) | ✅ Done |
 | `freeman:install` wizard | ✅ Done |
-| File upload support (multipart/form-data) | 🔜 Next |
+| File upload support (multipart/form-data) | ✅ Done |
 
 ---
 
