@@ -61,6 +61,14 @@ class RequestService
         $this->repo->delete($request);
     }
 
+    public function duplicate(int $id, int $userId): ApiRequest
+    {
+        $request = $this->repo->find($id);
+        $name    = 'Copy of '.$request->name;
+
+        return $this->repo->duplicate($request, $userId, $name);
+    }
+
     /**
      * When a collection_id or folder_id is supplied, verify they exist
      * and that the folder belongs to the collection.

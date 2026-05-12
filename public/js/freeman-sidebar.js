@@ -21,6 +21,7 @@ document.addEventListener('alpine:init', () => {
         renameCollectionModal:  { open: false, collectionId: null, name: '', loading: false, error: null },
         addRequestModal:        { open: false, collectionId: null, folderId: null, name: '', loading: false, error: null },
         folderMenuOpen:         null,
+        requestMenuOpen:        null,
 
         // ── Store proxies ──────────────────────────────────────────────────
         get collections()        { return Alpine.store('workspace').collections; },
@@ -83,6 +84,9 @@ document.addEventListener('alpine:init', () => {
         },
         toggleFolderMenu(id) {
             this.folderMenuOpen = this.folderMenuOpen === id ? null : id;
+        },
+        toggleRequestMenu(id) {
+            this.requestMenuOpen = this.requestMenuOpen === id ? null : id;
         },
 
         // ── Export ────────────────────────────────────────────────────────
@@ -185,6 +189,51 @@ document.addEventListener('alpine:init', () => {
                 await Alpine.store('workspace').loadCollections();
             } catch (e) {
                 console.error('deleteFolder:', e);
+            }
+        },
+
+        // ── Delete request ────────────────────────────────────────────────
+        async deleteRequest(requestId) {
+            if (!confirm('Delete this request?')) return;
+            this.requestMenuOpen = null;
+            const store = Alpine.store('workspace');
+            try {
+                await fetch(`/requests/${requestId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const tab = store.tabs.find(t => t.requestId === requestId);
+                if (tab) store.removeTab(tab.id);
+                await store.loadCollections();
+            } catch (e) {
+                console.error('deleteRequest:', e);
+            }
+        },
+
+        // ── Duplicate request ─────────────────────────────────────────────
+        async duplicateRequest(requestId) {
+            this.requestMenuOpen = null;
+            const store = Alpine.store('workspace');
+            try {
+                const res  = await fetch(`/requests/${requestId}/duplicate`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept':           'application/json',
+                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const json = await res.json();
+                if (res.ok) {
+                    await store.loadCollections();
+                    store.openRequest(json.data.id);
+                }
+            } catch (e) {
+                console.error('duplicateRequest:', e);
             }
         },
 

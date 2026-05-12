@@ -39,6 +39,13 @@ class SavedRequestController extends Controller
         return response()->json(['message' => 'Request deleted.']);
     }
 
+    public function duplicate(int $savedRequest): JsonResponse
+    {
+        $copy = $this->service->duplicate($savedRequest, auth()->id());
+
+        return response()->json(['data' => $copy], 201);
+    }
+
     /**
      * All requests in a collection.
      */

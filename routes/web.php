@@ -67,6 +67,7 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::post('/requests', [SavedRequestController::class, 'store'])->name('requests.store');
     Route::patch('/requests/{savedRequest}', [SavedRequestController::class, 'update'])->name('requests.update');
     Route::delete('/requests/{savedRequest}', [SavedRequestController::class, 'destroy'])->name('requests.destroy');
+    Route::post('/requests/{savedRequest}/duplicate', [SavedRequestController::class, 'duplicate'])->name('requests.duplicate');
     Route::get('/collections/{collection}/requests', [SavedRequestController::class, 'indexForCollection'])->name('requests.for-collection');
     Route::get('/collections/{collection}/folders/{folder}/requests', [SavedRequestController::class, 'indexForFolder'])->name('requests.for-folder');
 });

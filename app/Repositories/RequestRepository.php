@@ -53,6 +53,24 @@ class RequestRepository
         $request->delete();
     }
 
+    public function duplicate(Request $request, int $userId, string $name): Request
+    {
+        return Request::create([
+            'user_id'       => $userId,
+            'collection_id' => $request->collection_id,
+            'folder_id'     => $request->folder_id,
+            'name'          => $name,
+            'method'        => $request->method,
+            'url'           => $request->url,
+            'headers'       => $request->headers,
+            'body_type'     => $request->body_type,
+            'body'          => $request->body,
+            'body_form'     => $request->body_form,
+            'auth_type'     => $request->auth_type,
+            'auth_data'     => $request->auth_data,
+        ]);
+    }
+
     // --- Request log methods ---
 
     public function log(array $data): RequestLog

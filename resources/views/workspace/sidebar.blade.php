@@ -198,17 +198,57 @@
 
                                 {{-- Request row --}}
                                 <template x-if="item.type === 'request'">
-                                    <div @click="openRequest(item.req.id)"
-                                         class="flex items-center gap-2 pr-3 py-1.5 cursor-pointer transition-colors"
-                                         :style="'padding-left:' + (32 + item.depth * 16) + 'px;' + (activeTab?.requestId === item.req.id ? 'background:var(--color-bg-active-item)' : '')"
-                                         onmouseover="if(this.getAttribute('data-active')!=='1') this.style.background='var(--color-bg-hover-subtle)'"
-                                         onmouseout="if(this.getAttribute('data-active')!=='1') this.style.background=''"
-                                         :data-active="activeTab?.requestId === item.req.id ? '1' : '0'">
-                                        <span :class="methodColor(item.req.method)"
-                                              class="text-[9px] font-bold font-mono flex-shrink-0"
-                                              style="width:36px; text-align:right"
-                                              x-text="item.req.method"></span>
-                                        <span x-text="item.req.name" class="text-xs truncate" style="color:var(--color-text-secondary)"></span>
+                                    <div class="relative group"
+                                         @click.outside="requestMenuOpen === item.req.id && (requestMenuOpen = null)">
+                                        <div @click="openRequest(item.req.id)"
+                                             class="flex items-center gap-2 pr-2 py-1.5 cursor-pointer transition-colors"
+                                             :style="'padding-left:' + (32 + item.depth * 16) + 'px;' + (activeTab?.requestId === item.req.id ? 'background:var(--color-bg-active-item)' : '')"
+                                             onmouseover="if(this.getAttribute('data-active')!=='1') this.style.background='var(--color-bg-hover-subtle)'"
+                                             onmouseout="if(this.getAttribute('data-active')!=='1') this.style.background=''"
+                                             :data-active="activeTab?.requestId === item.req.id ? '1' : '0'">
+                                            <span :class="methodColor(item.req.method)"
+                                                  class="text-[9px] font-bold font-mono flex-shrink-0"
+                                                  style="width:36px; text-align:right"
+                                                  x-text="item.req.method"></span>
+                                            <span x-text="item.req.name" class="text-xs truncate flex-1" style="color:var(--color-text-secondary)"></span>
+                                            {{-- Three-dot menu button --}}
+                                            <div class="relative flex-shrink-0" @click.stop>
+                                                <button @click="toggleRequestMenu(item.req.id)"
+                                                        class="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100"
+                                                        :class="requestMenuOpen === item.req.id ? '!opacity-100' : ''"
+                                                        style="color:var(--color-text-muted-4);"
+                                                        onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-muted-4)'">
+                                                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                                    </svg>
+                                                </button>
+                                                {{-- Request context menu --}}
+                                                <div x-show="requestMenuOpen === item.req.id"
+                                                     x-cloak
+                                                     class="absolute right-0 top-full mt-1 w-40 rounded shadow-2xl z-50 py-1"
+                                                     style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                                                    <button @click="duplicateRequest(item.req.id)"
+                                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                            style="color:var(--color-text-primary)"
+                                                            onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                                                        <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                        </svg>
+                                                        Duplicate
+                                                    </button>
+                                                    <div style="border-top:1px solid var(--color-border-subtle); margin:4px 0;"></div>
+                                                    <button @click="deleteRequest(item.req.id)"
+                                                            class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                                                            style="color:var(--color-danger)"
+                                                            onmouseover="this.style.background='var(--color-bg-danger-hover)'" onmouseout="this.style.background='transparent'">
+                                                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                        </svg>
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </template>
 
