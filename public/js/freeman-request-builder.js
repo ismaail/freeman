@@ -10,6 +10,7 @@ document.addEventListener('alpine:init', () => {
         urlFocused:      false,
         responseCopied:  false,
         splitPct:        parseFloat(localStorage.getItem('freeman_split_pct') || '42'),
+        layoutMenuOpen:  false,
         varTooltip:      { show: false, text: '', x: 0, y: 0, isUndef: false },
         varAc:           { show: false, suggestions: [], x: 0, y: 0, anchor: null },
 
@@ -225,10 +226,13 @@ document.addEventListener('alpine:init', () => {
 
         // ── Split drag ─────────────────────────────────────────────────────
         startSplitDrag(e) {
-            const container = this.$refs.splitContainer;
+            const container  = this.$refs.splitContainer;
+            const sideBySide = Alpine.store('workspace').layoutMode === 'side-by-side';
             const onMove = (mv) => {
                 const rect = container.getBoundingClientRect();
-                const pct  = ((mv.clientY - rect.top) / rect.height) * 100;
+                const pct  = sideBySide
+                    ? ((mv.clientX - rect.left) / rect.width)  * 100
+                    : ((mv.clientY - rect.top)  / rect.height) * 100;
                 this.splitPct = Math.min(Math.max(pct, 15), 80);
             };
             const onUp = () => {

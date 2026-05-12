@@ -11,6 +11,7 @@ document.addEventListener('alpine:init', () => {
         collections:        [],
         collectionsLoading: true,
         environments:       [],
+        layoutMode:         localStorage.getItem('freeman_layout') || 'stacked',
 
         // ── Computed ───────────────────────────────────────────────────────
         get activeTab() {
@@ -77,6 +78,11 @@ document.addEventListener('alpine:init', () => {
                 this.activeTabId = next?.id ?? null;
             }
             this.persistTabs();
+        },
+
+        setLayout(mode) {
+            this.layoutMode = mode;
+            localStorage.setItem('freeman_layout', mode);
         },
 
         persistTabs() {

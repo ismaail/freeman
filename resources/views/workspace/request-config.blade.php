@@ -1,6 +1,8 @@
-{{-- === REQUEST CONFIG (top panel, height driven by splitPct) === --}}
+{{-- === REQUEST CONFIG (size driven by splitPct, direction by layoutMode) === --}}
 <div class="flex flex-col overflow-hidden flex-shrink-0"
-     :style="'height:' + splitPct + '%; border-bottom:1px solid var(--color-border-subtle);'">
+     :style="$store.workspace.layoutMode === 'side-by-side'
+         ? 'width:' + splitPct + '%; border-right:1px solid var(--color-border-subtle);'
+         : 'height:' + splitPct + '%; border-bottom:1px solid var(--color-border-subtle);'">
 
     {{-- Request tab bar --}}
     <div class="flex flex-shrink-0" style="background:var(--color-bg-surface); border-bottom:1px solid var(--color-border-subtle);">

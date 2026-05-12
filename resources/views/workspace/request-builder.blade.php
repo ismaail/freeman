@@ -82,15 +82,75 @@
     </button>
 </div>
 
-{{-- Request config + Response (vertical split) --}}
-<div x-ref="splitContainer" class="flex-1 flex flex-col overflow-hidden" style="min-height:0;">
+{{-- Request config + Response (layout-aware split) --}}
+<div x-ref="splitContainer"
+     class="flex-1 flex overflow-hidden"
+     :class="$store.workspace.layoutMode === 'side-by-side' ? 'flex-row' : 'flex-col'"
+     style="min-height:0;">
     @include('workspace.request-config')
-    {{-- Draggable split handle --}}
-    <div class="flex-shrink-0 flex items-center justify-center cursor-row-resize select-none group"
-         style="height:6px; background:var(--color-border-subtle);"
-         @mousedown.prevent="startSplitDrag($event)">
-        <div class="rounded-full opacity-40 group-hover:opacity-80 transition-opacity"
-             style="width:32px; height:2px; background:var(--color-text-muted-4);"></div>
+    {{-- Draggable split handle with layout menu --}}
+    <div class="flex-shrink-0 select-none relative"
+         :class="$store.workspace.layoutMode === 'side-by-side' ? 'cursor-col-resize' : 'cursor-row-resize'"
+         :style="$store.workspace.layoutMode === 'side-by-side'
+             ? 'width:12px; background:var(--color-border-subtle);'
+             : 'height:12px; background:var(--color-border-subtle);'"
+         @mousedown.prevent="startSplitDrag($event)"
+         @click.outside="layoutMenuOpen = false">
+
+        {{-- Three-dot menu button: right end (stacked) / bottom end (side-by-side), always visible --}}
+        <div class="absolute"
+             :style="$store.workspace.layoutMode === 'side-by-side'
+                 ? 'bottom:6px; left:50%; transform:translateX(-50%);'
+                 : 'right:6px; top:50%; transform:translateY(-50%);'"
+             @mousedown.stop>
+
+            <button @click.stop="layoutMenuOpen = !layoutMenuOpen"
+                    class="flex items-center justify-center rounded"
+                    style="width:20px; height:20px; color:var(--color-text-muted-4);"
+                    onmouseover="this.style.color='var(--color-text-primary)'"
+                    onmouseout="this.style.color='var(--color-text-muted-4)'">
+                {{-- Horizontal three-dot icon --}}
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+                </svg>
+            </button>
+
+            {{-- Layout dropdown --}}
+            <div x-show="layoutMenuOpen"
+                 x-cloak
+                 class="absolute z-50 w-44 rounded shadow-2xl py-1"
+                 :style="$store.workspace.layoutMode === 'side-by-side'
+                     ? 'bottom:100%; left:12px; margin-bottom:4px;'
+                     : 'top:100%; right:0; margin-top:4px;'"
+                 style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                <button @click.stop="$store.workspace.setLayout('stacked'); layoutMenuOpen = false"
+                        class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                        style="color:var(--color-text-primary)"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="1" y="1" width="14" height="6" rx="1"/>
+                        <rect x="1" y="9" width="14" height="6" rx="1"/>
+                    </svg>
+                    Stacked
+                    <svg x-show="$store.workspace.layoutMode === 'stacked'" class="w-3 h-3 ml-auto flex-shrink-0" style="color:var(--color-brand)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </button>
+                <button @click.stop="$store.workspace.setLayout('side-by-side'); layoutMenuOpen = false"
+                        class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
+                        style="color:var(--color-text-primary)"
+                        onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-3)" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="1" y="1" width="6" height="14" rx="1"/>
+                        <rect x="9" y="1" width="6" height="14" rx="1"/>
+                    </svg>
+                    Side by side
+                    <svg x-show="$store.workspace.layoutMode === 'side-by-side'" class="w-3 h-3 ml-auto flex-shrink-0" style="color:var(--color-brand)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </div>
     @include('workspace.response-panel')
 </div>
