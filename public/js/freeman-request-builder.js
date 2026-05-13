@@ -12,7 +12,7 @@ document.addEventListener('alpine:init', () => {
         splitPct:        parseFloat(localStorage.getItem('freeman_split_pct') || '42'),
         layoutMenuOpen:  false,
         varTooltip:      { show: false, text: '', x: 0, y: 0, isUndef: false },
-        varAc:           { show: false, suggestions: [], x: 0, y: 0, anchor: null },
+        varAc:           { show: false, suggestions: [], x: 0, y: 0, anchor: null, activeIdx: -1 },
 
         // ── Store proxies ──────────────────────────────────────────────────
         get activeTab() { return Alpine.store('workspace').activeTab; },
@@ -359,12 +359,67 @@ document.addEventListener('alpine:init', () => {
 
             if (!suggestions.length) { this.varAc.show = false; return; }
 
-            const rect         = el.getBoundingClientRect();
-            this.varAc.x       = rect.left;
-            this.varAc.y       = rect.bottom + 4;
+            const rect     = el.getBoundingClientRect();
+            const computed = getComputedStyle(el);
+            const lineHeight = parseFloat(computed.lineHeight) || parseFloat(computed.fontSize) * 1.4;
+
+            const mirror = document.createElement('div');
+            mirror.style.cssText = [
+                'position:fixed', 'visibility:hidden', 'pointer-events:none', 'overflow:hidden',
+                `font:${computed.font}`,
+                `letter-spacing:${computed.letterSpacing}`,
+                `padding:${computed.padding}`,
+                `border:${computed.border}`,
+                `box-sizing:${computed.boxSizing}`,
+            ].join(';');
+
+            if (el.tagName === 'INPUT') {
+                mirror.style.whiteSpace = 'pre';
+                mirror.textContent = before;
+                document.body.appendChild(mirror);
+                const textWidth = mirror.getBoundingClientRect().width;
+                this.varAc.x = rect.left + textWidth;
+                this.varAc.y = rect.bottom + 4;
+                document.body.removeChild(mirror);
+            } else {
+                mirror.style.whiteSpace    = 'pre-wrap';
+                mirror.style.wordBreak     = 'break-word';
+                mirror.style.width         = rect.width + 'px';
+                mirror.style.top           = rect.top + 'px';
+                mirror.style.left          = rect.left + 'px';
+                const textNode = document.createTextNode(before);
+                const marker   = document.createElement('span');
+                marker.textContent = '​';
+                mirror.appendChild(textNode);
+                mirror.appendChild(marker);
+                document.body.appendChild(mirror);
+                const mTop       = parseFloat(computed.paddingTop) || 0;
+                const markerRect = marker.getBoundingClientRect();
+                this.varAc.x = markerRect.left;
+                this.varAc.y = markerRect.top + mTop - el.scrollTop + lineHeight + 2;
+                document.body.removeChild(mirror);
+            }
+
             this.varAc.suggestions = suggestions;
-            this.varAc.anchor  = el;
-            this.varAc.show    = true;
+            this.varAc.anchor      = el;
+            this.varAc.activeIdx   = 0;
+            this.varAc.show        = true;
+        },
+
+        varAcKeydown(event) {
+            if (!this.varAc.show) return;
+            const len = this.varAc.suggestions.length;
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                this.varAc.activeIdx = (this.varAc.activeIdx + 1) % len;
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.varAc.activeIdx = (this.varAc.activeIdx - 1 + len) % len;
+            } else if (event.key === 'Enter' || event.key === 'Tab') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                this.selectVarAc(this.varAc.suggestions[this.varAc.activeIdx]);
+            }
         },
 
         selectVarAc(name) {

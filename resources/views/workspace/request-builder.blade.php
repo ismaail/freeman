@@ -57,7 +57,8 @@
         {{-- Real input --}}
         <input x-model="activeTab.request.url"
                x-ref="urlInput"
-               @keydown.enter="sendRequest()"
+               @keydown="varAcKeydown($event)"
+               @keydown.enter="if (!varAc.show) sendRequest()"
                @keydown.escape="varAc.show = false"
                @scroll="$refs.urlBackdrop.scrollLeft = $el.scrollLeft"
                @focus="urlFocused = true"
@@ -181,13 +182,13 @@
 <div x-show="varAc.show"
      x-cloak
      @keydown.escape.window="varAc.show = false"
-     :style="`position:fixed; left:${varAc.x}px; top:${varAc.y}px; z-index:300; min-width:220px; max-width:340px;`"
-     class="rounded shadow-2xl py-1"
-     style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
-    <template x-for="s in varAc.suggestions" :key="s">
+     :style="`position:fixed; left:${varAc.x}px; top:${varAc.y}px; z-index:300; min-width:220px; max-width:340px; background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);`"
+     class="rounded shadow-2xl py-1">
+    <template x-for="(s, i) in varAc.suggestions" :key="s">
         <button @mousedown.prevent="selectVarAc(s)"
-                class="w-full flex items-center justify-between gap-3 px-3 py-1.5 text-xs text-left"
-                onmouseover="this.style.background='var(--color-bg-btn)'" onmouseout="this.style.background='transparent'">
+                @mouseenter="varAc.activeIdx = i"
+                :style="varAc.activeIdx === i ? 'background:var(--color-bg-btn)' : ''"
+                class="w-full flex items-center justify-between gap-3 px-3 py-1.5 text-xs text-left">
             <span class="font-mono" style="color:var(--color-brand);" x-text="varLabel(s)"></span>
             <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
                   style="background:rgba(249,115,22,0.15); color:#f97316; border:1px solid rgba(249,115,22,0.3);">C</span>

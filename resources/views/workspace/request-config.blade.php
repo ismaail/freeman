@@ -58,7 +58,7 @@
                                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                                     <div class="vf-back" x-html="highlightVars(p.value)"></div>
                                     <input x-model="p.value" type="text" placeholder="Value"
-                                           @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                           @keydown="varAcKeydown($event)" @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                            class="vf-real focus:outline-none"
                                            onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                            onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -140,7 +140,7 @@
                                      @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                                     <div class="vf-back" x-html="highlightVars(h.value)"></div>
                                     <input x-model="h.value" type="text" placeholder="Value"
-                                           @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                           @keydown="varAcKeydown($event)" @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                            class="vf-real focus:outline-none"
                                            onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                            onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -218,12 +218,14 @@
                     <div class="vf-back response-body" x-html="highlightBodyContent(activeTab.request.body ?? '')"></div>
                     <textarea x-model="activeTab.request.body"
                               placeholder='{"key": "value"}'
-                              @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                              @keydown="varAcKeydown($event)" @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                               @keydown.tab.prevent="
-                                  const s = $el.selectionStart, e = $el.selectionEnd;
-                                  $el.value = $el.value.slice(0, s) + '  ' + $el.value.slice(e);
-                                  $el.selectionStart = $el.selectionEnd = s + 2;
-                                  $el.dispatchEvent(new Event('input', { bubbles: true }));
+                                  if (!varAc.show) {
+                                      const s = $el.selectionStart, e = $el.selectionEnd;
+                                      $el.value = $el.value.slice(0, s) + '  ' + $el.value.slice(e);
+                                      $el.selectionStart = $el.selectionEnd = s + 2;
+                                      $el.dispatchEvent(new Event('input', { bubbles: true }));
+                                  }
                               "
                               class="vf-real focus:outline-none"
                               onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
@@ -287,7 +289,7 @@
                                              @mousemove="onVarHover($event)" @mouseleave="varTooltip.show=false">
                                             <div class="vf-back" x-html="highlightVars(r.value)"></div>
                                             <input x-model="r.value" type="text" placeholder="Value"
-                                                   @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                                                   @keydown="varAcKeydown($event)" @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                                    class="vf-real focus:outline-none"
                                                    onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                                    onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -350,7 +352,7 @@
                         <div class="vf-back" x-html="highlightVars(activeTab.request.auth_data.token ?? '')"></div>
                         <input x-model="activeTab.request.auth_data.token"
                                type="text" placeholder="Enter bearer token"
-                               @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                               @keydown="varAcKeydown($event)" @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                class="vf-real focus:outline-none"
                                onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
@@ -398,7 +400,7 @@
                         <div class="vf-back" x-html="highlightVars(activeTab.request.auth_data.value ?? '')"></div>
                         <input x-model="activeTab.request.auth_data.value"
                                type="text" placeholder="API key value"
-                               @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
+                               @keydown="varAcKeydown($event)" @input="checkVarAc($event); markDirty()" @blur="varAc.show = false" @keydown.escape="varAc.show = false"
                                class="vf-real focus:outline-none"
                                onfocus="this.closest('.var-field-wrap').style.borderColor='var(--color-border-input)'"
                                onblur="this.closest('.var-field-wrap').style.borderColor='var(--color-border-subtle)'"/>
