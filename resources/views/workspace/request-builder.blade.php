@@ -120,9 +120,8 @@
                  x-cloak
                  class="absolute z-50 w-44 rounded shadow-2xl py-1"
                  :style="$store.workspace.layoutMode === 'side-by-side'
-                     ? 'bottom:100%; left:12px; margin-bottom:4px;'
-                     : 'top:100%; right:0; margin-top:4px;'"
-                 style="background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);">
+                     ? 'bottom:100%; left:12px; margin-bottom:4px; background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);'
+                     : 'top:100%; right:0; margin-top:4px; background:var(--color-bg-elevated); border:1px solid var(--color-border-menu);'">
                 <button @click.stop="$store.workspace.setLayout('stacked'); layoutMenuOpen = false"
                         class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
                         style="color:var(--color-text-primary)"
