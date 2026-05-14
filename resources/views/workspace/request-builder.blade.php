@@ -90,7 +90,7 @@
      style="min-height:0;">
     @include('workspace.request-config')
     {{-- Draggable split handle with layout menu --}}
-    <div class="flex-shrink-0 select-none relative"
+    <div class="flex-shrink-0 select-none relative z-10"
          :class="$store.workspace.layoutMode === 'side-by-side' ? 'cursor-col-resize' : 'cursor-row-resize'"
          :style="$store.workspace.layoutMode === 'side-by-side'
              ? 'width:12px; background:var(--color-border-subtle);'
