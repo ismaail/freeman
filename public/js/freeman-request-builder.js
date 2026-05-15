@@ -606,54 +606,8 @@ document.addEventListener('alpine:init', () => {
 
         // ── JSON / XML highlighters (response viewer) ──────────────────────
         highlightJson(body) {
-            let fmt;
-            try { fmt = JSON.stringify(JSON.parse(body), null, 2); }
+            try { return renderFoldableJson(JSON.parse(body)); }
             catch { return '<span class="json-punct">' + escHtml(body) + '</span>'; }
-
-            let html = '';
-            let i    = 0;
-            const len = fmt.length;
-            while (i < len) {
-                const ch = fmt[i];
-                if (ch === '"') {
-                    let j = i + 1;
-                    while (j < len) {
-                        if (fmt[j] === '\\') { j += 2; continue; }
-                        if (fmt[j] === '"')  { j++; break; }
-                        j++;
-                    }
-                    const token = fmt.slice(i, j);
-                    let k = j;
-                    while (k < len && fmt[k] === ' ') k++;
-                    const isKey = fmt[k] === ':';
-                    html += isKey
-                        ? `<span class="json-key">${escHtml(token)}</span>`
-                        : `<span class="json-str">${escHtml(token)}</span>`;
-                    i = j;
-                } else if (fmt.startsWith('true', i)) {
-                    html += '<span class="json-bool">true</span>';  i += 4;
-                } else if (fmt.startsWith('false', i)) {
-                    html += '<span class="json-bool">false</span>'; i += 5;
-                } else if (fmt.startsWith('null', i)) {
-                    html += '<span class="json-null">null</span>';  i += 4;
-                } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
-                    let j = i;
-                    if (fmt[j] === '-') j++;
-                    while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
-                    if (j < len && fmt[j] === '.') { j++; while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++; }
-                    if (j < len && (fmt[j] === 'e' || fmt[j] === 'E')) {
-                        j++;
-                        if (j < len && (fmt[j] === '+' || fmt[j] === '-')) j++;
-                        while (j < len && fmt[j] >= '0' && fmt[j] <= '9') j++;
-                    }
-                    html += `<span class="json-num">${fmt.slice(i, j)}</span>`;
-                    i = j;
-                } else {
-                    html += escHtml(ch);
-                    i++;
-                }
-            }
-            return html;
         },
 
         highlightXml(body) {
