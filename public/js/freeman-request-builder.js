@@ -130,12 +130,8 @@ document.addEventListener('alpine:init', () => {
             tab.isLoading = true;
             tab.response  = null;
 
-            let url = tab.request.url;
-            const qp = tab.request.params.filter(p => p.enabled && p.key.trim());
-            if (qp.length) {
-                const qs = qp.map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&');
-                url += (url.includes('?') ? '&' : '?') + qs;
-            }
+            const url = tab.request.url;
+            const qp  = tab.request.params.filter(p => p.enabled && p.key.trim());
 
             let effectiveHeaders = tab.request.headers.filter(h => h.key.trim());
             if (tab.request.body_type === 'raw') {
@@ -163,6 +159,7 @@ document.addEventListener('alpine:init', () => {
                     fd.append('request_id',    tab.requestId    ?? '');
                     fd.append('collection_id', tab.request.collection_id ?? '');
                     fd.append('headers',       JSON.stringify(effectiveHeaders));
+                    fd.append('params',        JSON.stringify(qp));
 
                     let formIndex = 0;
                     tab.request.body_form.forEach((row, originalIndex) => {
@@ -211,6 +208,7 @@ document.addEventListener('alpine:init', () => {
                             auth_data:     tab.request.auth_data,
                             request_id:    tab.requestId,
                             collection_id: tab.request.collection_id,
+                            params:        qp,
                         }),
                     });
                 }
@@ -310,6 +308,20 @@ document.addEventListener('alpine:init', () => {
         },
 
         highlightVars(text) { return this.highlightUrl(text); },
+
+        // Overlay {{var}} marks onto HTML already produced by a syntax highlighter.
+        // Safe because { and } are not HTML special chars, so they survive escHtml unchanged.
+        overlayVarMarks(html) {
+            if (!html) return html;
+            const vars = this.activeTab?.collectionVars ?? {};
+            return html.replace(/\{\{([^}]*)\}\}/g, (match, key) => {
+                const k = key.trim();
+                if (k in vars) {
+                    return `<mark class="url-var url-var-ok" data-name="${escHtml(k)}" data-val="${escHtml(vars[k])}">{{${escHtml(key)}}}</mark>`;
+                }
+                return `<mark class="url-var url-var-err" data-name="${escHtml(k)}">{{${escHtml(key)}}}</mark>`;
+            });
+        },
 
         // ── Variable hover tooltip ─────────────────────────────────────────
         onVarHover(event) {
@@ -480,9 +492,9 @@ document.addEventListener('alpine:init', () => {
         highlightBodyContent(text) {
             if (!text) return '';
             const type = this.activeTab?.request.raw_body_type;
-            if (type === 'json')                   return this.highlightJsonEditor(text);
-            if (type === 'xml' || type === 'html') return this.highlightXmlEditor(text);
-            if (type === 'javascript')             return this.highlightJsEditor(text);
+            if (type === 'json')                   return this.overlayVarMarks(this.highlightJsonEditor(text));
+            if (type === 'xml' || type === 'html') return this.overlayVarMarks(this.highlightXmlEditor(text));
+            if (type === 'javascript')             return this.overlayVarMarks(this.highlightJsEditor(text));
             return this.highlightVars(text);
         },
 

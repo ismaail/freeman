@@ -43,6 +43,7 @@ class RequestRunnerService
         ?int $collectionId = null,
         array $bodyFormRows = [],
         array $bodyFormFiles = [],
+        array $params = [],
     ): array {
         // Collection variables are the base; env variables override them (env support coming in v2).
         $collectionVars = $collectionId !== null
@@ -58,6 +59,14 @@ class RequestRunnerService
         $url     = $this->environmentService->substitute($url, $variables);
         $headers = $this->substituteHeaderValues($headers, $variables);
         $body    = $body !== null ? $this->environmentService->substitute($body, $variables) : null;
+
+        foreach ($params as &$p) {
+            if (isset($p['value'])) {
+                $p['value'] = $this->environmentService->substitute((string) $p['value'], $variables);
+            }
+        }
+        unset($p);
+
         $client = new Client([
             'timeout'         => 30,
             'connect_timeout' => 10,
@@ -65,8 +74,15 @@ class RequestRunnerService
             // TODO: expose verify_ssl as a per-request option in v2
         ]);
 
-        $resolvedHeaders = $this->buildHeaders($headers, $authType, $authData);
-        $queryParams     = $this->buildQueryParams($authType, $authData);
+        $resolvedHeaders = $this->buildHeaders($headers, $authType, $authData, $variables);
+
+        $userQuery = [];
+        foreach ($params as $p) {
+            if (! empty($p['enabled']) && isset($p['key']) && $p['key'] !== '') {
+                $userQuery[$p['key']] = $p['value'] ?? '';
+            }
+        }
+        $queryParams = array_merge($userQuery, $this->buildQueryParams($authType, $authData, $variables));
 
         $options = ['headers' => $resolvedHeaders];
 
@@ -149,8 +165,9 @@ class RequestRunnerService
 
     /**
      * Merge enabled user-supplied headers with auth headers derived from auth config.
+     * Auth credential values are variable-substituted before use.
      */
-    private function buildHeaders(array $headers, ?string $authType, ?array $authData): array
+    private function buildHeaders(array $headers, ?string $authType, ?array $authData, array $variables = []): array
     {
         $resolved = [];
 
@@ -160,19 +177,21 @@ class RequestRunnerService
             }
         }
 
+        $sub = fn (string $v) => $this->environmentService->substitute($v, $variables);
+
         switch ($authType) {
             case 'bearer':
-                $resolved['Authorization'] = 'Bearer ' . ($authData['token'] ?? '');
+                $resolved['Authorization'] = 'Bearer ' . $sub($authData['token'] ?? '');
                 break;
 
             case 'basic':
-                $credentials = ($authData['username'] ?? '') . ':' . ($authData['password'] ?? '');
+                $credentials = $sub($authData['username'] ?? '') . ':' . $sub($authData['password'] ?? '');
                 $resolved['Authorization'] = 'Basic ' . base64_encode($credentials);
                 break;
 
             case 'api_key':
                 if (($authData['in'] ?? 'header') === 'header') {
-                    $resolved[$authData['key'] ?? 'X-API-Key'] = $authData['value'] ?? '';
+                    $resolved[$authData['key'] ?? 'X-API-Key'] = $sub($authData['value'] ?? '');
                 }
                 break;
         }
@@ -182,11 +201,14 @@ class RequestRunnerService
 
     /**
      * Returns query params to append (used when API key placement is 'query').
+     * The API key value is variable-substituted before use.
      */
-    private function buildQueryParams(?string $authType, ?array $authData): array
+    private function buildQueryParams(?string $authType, ?array $authData, array $variables = []): array
     {
         if ($authType === 'api_key' && ($authData['in'] ?? 'header') === 'query') {
-            return [($authData['key'] ?? 'api_key') => ($authData['value'] ?? '')];
+            $value = $this->environmentService->substitute($authData['value'] ?? '', $variables);
+
+            return [($authData['key'] ?? 'api_key') => $value];
         }
 
         return [];

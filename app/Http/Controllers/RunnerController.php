@@ -16,12 +16,16 @@ class RunnerController extends Controller
         // arrive as JSON strings — decode them back to arrays.
         $headers  = $request->input('headers', []);
         $authData = $request->input('auth_data');
+        $params   = $request->input('params', []);
 
         if (is_string($headers)) {
             $headers = json_decode($headers, true) ?? [];
         }
         if (is_string($authData)) {
             $authData = json_decode($authData, true);
+        }
+        if (is_string($params)) {
+            $params = json_decode($params, true) ?? [];
         }
 
         $result = $this->runner->run(
@@ -38,6 +42,7 @@ class RunnerController extends Controller
             collectionId:  $request->input('collection_id') ?: null,
             bodyFormRows:  $request->input('body_form', []),
             bodyFormFiles: $request->file('body_form_files', []),
+            params:        $params,
         );
 
         return response()->json($result);
