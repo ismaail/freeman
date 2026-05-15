@@ -13,6 +13,11 @@ document.addEventListener('alpine:init', () => {
         layoutMenuOpen:  false,
         varTooltip:      { show: false, text: '', x: 0, y: 0, isUndef: false },
         varAc:           { show: false, suggestions: [], x: 0, y: 0, anchor: null, activeIdx: -1 },
+        jsonFilterOpen:  false,
+        jsonFilter:      '',
+        jsonFilterHide:  false,
+        jsonFilterHistory: [],
+        jsonMatchCount:  0,
 
         // ── Store proxies ──────────────────────────────────────────────────
         get activeTab() { return Alpine.store('workspace').activeTab; },
@@ -31,6 +36,14 @@ document.addEventListener('alpine:init', () => {
         // ── Init ──────────────────────────────────────────────────────────
         init() {
             // Clean up fileSelectedMap when a tab is closed by the shell
+            window.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'f' && this.responseDetectedType === 'json'
+                    && this.activeTab?.responseViewMode === 'pretty'
+                    && this.activeTab?.response?.success) {
+                    e.preventDefault();
+                    this.toggleJsonFilter();
+                }
+            });
             window.addEventListener('freeman:tab-closed', (e) => {
                 const tabId   = e.detail.tabId;
                 const updated = { ...this.fileSelectedMap };
@@ -604,10 +617,42 @@ document.addEventListener('alpine:init', () => {
                 .replace(/(\/\/[^\n]*)/g,        '<span class="xml-comment">$1</span>');
         },
 
+        // ── JSON filter ────────────────────────────────────────────────────
+        toggleJsonFilter() {
+            this.jsonFilterOpen = !this.jsonFilterOpen;
+            if (this.jsonFilterOpen) {
+                const rid = this.activeTab?.request?.id ?? 'scratch';
+                try { this.jsonFilterHistory = JSON.parse(localStorage.getItem(`freeman_jf_history_${rid}`) || '[]'); }
+                catch { this.jsonFilterHistory = []; }
+                setTimeout(() => document.getElementById('jf-filter-input')?.focus(), 50);
+            } else {
+                this.jsonFilter = '';
+            }
+        },
+        clearJsonFilter() {
+            this.jsonFilter = '';
+            setTimeout(() => document.getElementById('jf-filter-input')?.focus(), 0);
+        },
+        saveFilterToHistory(query) {
+            if (!query.trim()) return;
+            const rid = this.activeTab?.request?.id ?? 'scratch';
+            const key = `freeman_jf_history_${rid}`;
+            let hist  = this.jsonFilterHistory.filter(h => h !== query);
+            hist.unshift(query);
+            hist = hist.slice(0, 5);
+            this.jsonFilterHistory = hist;
+            try { localStorage.setItem(key, JSON.stringify(hist)); } catch {}
+        },
+
         // ── JSON / XML highlighters (response viewer) ──────────────────────
         highlightJson(body) {
-            try { return renderFoldableJson(JSON.parse(body)); }
-            catch { return '<span class="json-punct">' + escHtml(body) + '</span>'; }
+            try {
+                const html = renderFoldableJson(JSON.parse(body), this.jsonFilter, this.jsonFilterHide);
+                this.jsonMatchCount = jfMatchCount();
+                return html;
+            } catch {
+                return '<span class="json-punct">' + escHtml(body) + '</span>';
+            }
         },
 
         highlightXml(body) {

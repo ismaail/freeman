@@ -66,38 +66,95 @@ function varLabel(name) {
         '.jf-toggle{cursor:pointer;user-select:none;color:#6b7280;font-size:1em;padding:0 3px;vertical-align:middle}',
         '.jf-toggle:hover{color:#d1d5db}',
         '.jf-sum{color:#6b7280;font-style:italic}',
+        '.jf-match{background:rgba(250,204,21,.3);border-radius:2px;color:inherit}',
+        '.jf-hidden{color:#6b7280;font-style:italic;font-size:.85em}',
     ].join('');
     document.head.appendChild(s);
 })();
 
-let _jfId = 0;
+let _jfId = 0, _jfFilter = '', _jfMatchCount = 0, _jfHide = false;
 
-function renderFoldableJson(value) {
-    _jfId = 0;
+function renderFoldableJson(value, filter, hide) {
+    _jfId         = 0;
+    _jfFilter     = filter ? filter.trim().toLowerCase() : '';
+    _jfMatchCount = 0;
+    _jfHide       = hide && !!_jfFilter;
     return _jfNode(value, 0);
+}
+
+function jfMatchCount() { return _jfMatchCount; }
+
+function _jfHasMatch(val, q) {
+    if (!q) return false;
+    if (val === null)             return 'null'.includes(q);
+    if (typeof val === 'boolean') return String(val).includes(q);
+    if (typeof val === 'number')  return String(val).includes(q);
+    if (typeof val === 'string')  return JSON.stringify(val).slice(1, -1).toLowerCase().includes(q);
+    if (Array.isArray(val))       return val.some(v => _jfHasMatch(v, q));
+    if (typeof val === 'object')  return Object.entries(val).some(([k, v]) =>
+        JSON.stringify(k).slice(1, -1).toLowerCase().includes(q) || _jfHasMatch(v, q)
+    );
+    return false;
+}
+
+function _jfHighlight(raw, q) {
+    if (!q) return escHtml(raw);
+    const lower = raw.toLowerCase();
+    let result = '', i = 0;
+    while (i < raw.length) {
+        const idx = lower.indexOf(q, i);
+        if (idx === -1) { result += escHtml(raw.slice(i)); break; }
+        result += escHtml(raw.slice(i, idx));
+        result += `<mark class="jf-match">${escHtml(raw.slice(idx, idx + q.length))}</mark>`;
+        _jfMatchCount++;
+        i = idx + q.length;
+    }
+    return result;
 }
 
 function _jfNode(val, indent) {
     const pad  = ' '.repeat(indent);
     const pad2 = ' '.repeat(indent + 2);
+    const q    = _jfFilter;
 
-    if (val === null)             return '<span class="json-null">null</span>';
-    if (typeof val === 'boolean') return `<span class="json-bool">${val}</span>`;
-    if (typeof val === 'number')  return `<span class="json-num">${val}</span>`;
-    if (typeof val === 'string')  return `<span class="json-str">${escHtml(JSON.stringify(val))}</span>`;
+    if (val === null) {
+        if (q && 'null'.includes(q)) { _jfMatchCount++; return '<span class="json-null"><mark class="jf-match">null</mark></span>'; }
+        return '<span class="json-null">null</span>';
+    }
+    if (typeof val === 'boolean') {
+        const s = String(val);
+        if (q && s.includes(q)) { _jfMatchCount++; return `<span class="json-bool"><mark class="jf-match">${s}</mark></span>`; }
+        return `<span class="json-bool">${s}</span>`;
+    }
+    if (typeof val === 'number') {
+        const s = String(val);
+        if (q && s.includes(q)) { _jfMatchCount++; return `<span class="json-num"><mark class="jf-match">${s}</mark></span>`; }
+        return `<span class="json-num">${s}</span>`;
+    }
+    if (typeof val === 'string') {
+        const inner = JSON.stringify(val).slice(1, -1);
+        return `<span class="json-str">"${_jfHighlight(inner, q)}"</span>`;
+    }
 
     if (Array.isArray(val)) {
         if (val.length === 0) return '<span class="json-punct">[]</span>';
         const id = ++_jfId;
         const n  = val.length;
-        const rows = val.map((v, i) =>
-            pad2 + _jfNode(v, indent + 2) + (i < n - 1 ? '<span class="json-punct">,</span>' : '')
+        let visible = val, hiddenCount = 0;
+        if (_jfHide) {
+            visible     = val.filter(v => _jfHasMatch(v, _jfFilter));
+            hiddenCount = n - visible.length;
+        }
+        const rows      = visible.map((v, i) =>
+            pad2 + _jfNode(v, indent + 2) + (i < visible.length - 1 ? '<span class="json-punct">,</span>' : '')
         ).join('\n');
+        const hiddenNote = hiddenCount > 0
+            ? `\n${pad2}<span class="jf-hidden">… ${hiddenCount} item${hiddenCount !== 1 ? 's' : ''} hidden</span>` : '';
         return `<span class="jf-group">`
              + `<span class="jf-toggle" id="jf-t-${id}" onclick="jfToggle(${id})">▾</span>`
              + `<span class="json-punct">[</span>`
              + `<span class="jf-sum" id="jf-s-${id}" style="display:none"> ${n} item${n !== 1 ? 's' : ''} <span class="json-punct">]</span></span>`
-             + `<span id="jf-b-${id}">\n${rows}\n${pad}</span>`
+             + `<span id="jf-b-${id}">\n${rows}${hiddenNote}\n${pad}</span>`
              + `<span class="json-punct" id="jf-c-${id}">]</span>`
              + `</span>`;
     }
@@ -107,16 +164,24 @@ function _jfNode(val, indent) {
         if (keys.length === 0) return '<span class="json-punct">{}</span>';
         const id = ++_jfId;
         const n  = keys.length;
-        const rows = keys.map((k, i) =>
-            pad2 + `<span class="json-key">${escHtml(JSON.stringify(k))}</span><span class="json-punct">:</span> `
-                 + _jfNode(val[k], indent + 2)
-                 + (i < n - 1 ? '<span class="json-punct">,</span>' : '')
-        ).join('\n');
+        let visibleKeys = keys, hiddenCount = 0;
+        if (_jfHide) {
+            visibleKeys = keys.filter(k => _jfHasMatch(k, _jfFilter) || _jfHasMatch(val[k], _jfFilter));
+            hiddenCount = n - visibleKeys.length;
+        }
+        const rows = visibleKeys.map((k, i) => {
+            const keyInner = JSON.stringify(k).slice(1, -1);
+            return pad2 + `<span class="json-key">"${_jfHighlight(keyInner, q)}"</span><span class="json-punct">:</span> `
+                        + _jfNode(val[k], indent + 2)
+                        + (i < visibleKeys.length - 1 ? '<span class="json-punct">,</span>' : '');
+        }).join('\n');
+        const hiddenNote = hiddenCount > 0
+            ? `\n${pad2}<span class="jf-hidden">… ${hiddenCount} key${hiddenCount !== 1 ? 's' : ''} hidden</span>` : '';
         return `<span class="jf-group">`
              + `<span class="jf-toggle" id="jf-t-${id}" onclick="jfToggle(${id})">▾</span>`
              + `<span class="json-punct">{</span>`
              + `<span class="jf-sum" id="jf-s-${id}" style="display:none"> ${n} key${n !== 1 ? 's' : ''} <span class="json-punct">}</span></span>`
-             + `<span id="jf-b-${id}">\n${rows}\n${pad}</span>`
+             + `<span id="jf-b-${id}">\n${rows}${hiddenNote}\n${pad}</span>`
              + `<span class="json-punct" id="jf-c-${id}">}</span>`
              + `</span>`;
     }
