@@ -13,6 +13,7 @@
     <script src="{{ asset('js/freeman-sidebar.js') }}"></script>
     <script src="{{ asset('js/freeman-request-builder.js') }}"></script>
     <script src="{{ asset('js/freeman-modals.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsonpath-plus/dist/index-browser-umd.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         /* ── Freeman Design Tokens ──────────────────────────────── */

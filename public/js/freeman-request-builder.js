@@ -15,9 +15,11 @@ document.addEventListener('alpine:init', () => {
         varAc:           { show: false, suggestions: [], x: 0, y: 0, anchor: null, activeIdx: -1 },
         jsonFilterOpen:  false,
         jsonFilter:      '',
-        jsonFilterHide:  false,
         jsonFilterHistory: [],
-        jsonMatchCount:  0,
+        jsonPathResult:  null,
+        jsonPathError:   '',
+        jsonPathCount:   0,
+        jsonMatchIndex:  -1,
 
         // ── Store proxies ──────────────────────────────────────────────────
         get activeTab() { return Alpine.store('workspace').activeTab; },
@@ -43,6 +45,18 @@ document.addEventListener('alpine:init', () => {
                     e.preventDefault();
                     this.toggleJsonFilter();
                 }
+            });
+            this.$watch('jsonFilter', (q) => {
+                if (!q.trim() || q.trim().startsWith('$')) {
+                    this.jsonMatchIndex = -1;
+                    if (!q.trim()) { this.jsonPathCount = 0; this.jsonPathResult = null; this.jsonPathError = ''; }
+                    return;
+                }
+                // text search mode: count from DOM after x-html renders
+                this.$nextTick(() => {
+                    this.jsonPathCount  = document.querySelectorAll('.jf-match').length;
+                    this.jsonMatchIndex = -1;
+                });
             });
             window.addEventListener('freeman:tab-closed', (e) => {
                 const tabId   = e.detail.tabId;
@@ -478,6 +492,33 @@ document.addEventListener('alpine:init', () => {
                 const mime = this._getMimeFromHeaders(headers) || 'audio/mpeg';
                 return `<audio controls class="w-full mt-1"><source src="data:${mime};base64,${body}" type="${mime}"></audio>`;
             }
+            if (this.jsonFilterOpen && this.jsonFilter.trim() && type === 'json' && tab?.responseViewMode !== 'raw') {
+                const q = this.jsonFilter.trim();
+                if (q.startsWith('$')) {
+                    // JSONPath mode
+                    try {
+                        const fn      = typeof JSONPath === 'function' ? JSONPath : JSONPath.JSONPath;
+                        const results = fn({ path: q, json: JSON.parse(body) });
+                        this.jsonPathResult = results;
+                        this.jsonPathCount  = results.length;
+                        this.jsonPathError  = '';
+                        if (results.length === 0) return '<span style="color:var(--color-text-muted-4);font-style:italic;">No matches for this JSONPath.</span>';
+                        return renderFoldableJson(results);
+                    } catch {
+                        this.jsonPathResult = null;
+                        this.jsonPathCount  = 0;
+                        this.jsonPathError  = 'Invalid JSONPath expression';
+                    }
+                } else {
+                    // Plain text highlight mode — count updated via $watch + $nextTick after DOM renders
+                    try {
+                        const html = renderFoldableJson(JSON.parse(body), q);
+                        this.jsonPathResult = null;
+                        this.jsonPathError  = '';
+                        return html;
+                    } catch { /* fall through */ }
+                }
+            }
             if (tab?.responseViewMode === 'raw')   return escHtml(body);
             if (type === 'json')                   return this.highlightJson(body);
             if (type === 'xml' || type === 'html') return this.highlightXml(body);
@@ -617,7 +658,7 @@ document.addEventListener('alpine:init', () => {
                 .replace(/(\/\/[^\n]*)/g,        '<span class="xml-comment">$1</span>');
         },
 
-        // ── JSON filter ────────────────────────────────────────────────────
+        // ── JSONPath filter ─────────────────────────────────────────────────
         toggleJsonFilter() {
             this.jsonFilterOpen = !this.jsonFilterOpen;
             if (this.jsonFilterOpen) {
@@ -626,12 +667,37 @@ document.addEventListener('alpine:init', () => {
                 catch { this.jsonFilterHistory = []; }
                 setTimeout(() => document.getElementById('jf-filter-input')?.focus(), 50);
             } else {
-                this.jsonFilter = '';
+                this.jsonFilter     = '';
+                this.jsonPathResult = null;
+                this.jsonPathError  = '';
+                this.jsonPathCount  = 0;
             }
         },
-        clearJsonFilter() {
-            this.jsonFilter = '';
-            setTimeout(() => document.getElementById('jf-filter-input')?.focus(), 0);
+        nextMatch() {
+            const marks = Array.from(document.querySelectorAll('.jf-match'));
+            if (!marks.length) return;
+            this.jsonPathCount = marks.length;
+            if (this.jsonMatchIndex >= 0 && this.jsonMatchIndex < marks.length)
+                marks[this.jsonMatchIndex].classList.remove('jf-match-active');
+            this.jsonMatchIndex = (this.jsonMatchIndex + 1) % marks.length;
+            marks[this.jsonMatchIndex].classList.add('jf-match-active');
+            marks[this.jsonMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
+        prevMatch() {
+            const marks = Array.from(document.querySelectorAll('.jf-match'));
+            if (!marks.length) return;
+            this.jsonPathCount = marks.length;
+            if (this.jsonMatchIndex >= 0 && this.jsonMatchIndex < marks.length)
+                marks[this.jsonMatchIndex].classList.remove('jf-match-active');
+            this.jsonMatchIndex = (this.jsonMatchIndex - 1 + marks.length) % marks.length;
+            marks[this.jsonMatchIndex].classList.add('jf-match-active');
+            marks[this.jsonMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
+        removeHistoryItem(query) {
+            const rid = this.activeTab?.request?.id ?? 'scratch';
+            const key = `freeman_jf_history_${rid}`;
+            this.jsonFilterHistory = this.jsonFilterHistory.filter(h => h !== query);
+            try { localStorage.setItem(key, JSON.stringify(this.jsonFilterHistory)); } catch {}
         },
         saveFilterToHistory(query) {
             if (!query.trim()) return;
@@ -646,13 +712,8 @@ document.addEventListener('alpine:init', () => {
 
         // ── JSON / XML highlighters (response viewer) ──────────────────────
         highlightJson(body) {
-            try {
-                const html = renderFoldableJson(JSON.parse(body), this.jsonFilter, this.jsonFilterHide);
-                this.jsonMatchCount = jfMatchCount();
-                return html;
-            } catch {
-                return '<span class="json-punct">' + escHtml(body) + '</span>';
-            }
+            try { return renderFoldableJson(JSON.parse(body)); }
+            catch { return '<span class="json-punct">' + escHtml(body) + '</span>'; }
         },
 
         highlightXml(body) {

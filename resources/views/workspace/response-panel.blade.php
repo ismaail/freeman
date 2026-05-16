@@ -214,39 +214,53 @@
                 <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:var(--color-text-muted-4);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
                 </svg>
-                <div class="relative flex-1">
-                    <input id="jf-filter-input"
-                           type="text"
-                           x-model="jsonFilter"
-                           placeholder="Filter JSON keys and values…"
-                           @keydown.enter="saveFilterToHistory(jsonFilter)"
-                           @keydown.escape="toggleJsonFilter()"
-                           @focus="histOpen = jsonFilterHistory.length > 0"
-                           @blur="setTimeout(() => histOpen = false, 150)"
-                           class="w-full text-xs font-mono bg-transparent outline-none"
-                           style="color:var(--color-text-input); caret-color:var(--color-brand);"
-                           autocomplete="off" spellcheck="false">
-                    <span x-show="jsonFilter.trim()"
-                          x-text="jsonMatchCount + (jsonMatchCount === 1 ? ' match' : ' matches')"
-                          class="absolute right-0 top-0 text-[10px] pointer-events-none"
-                          style="color:var(--color-text-muted-5); line-height:1.5rem;"></span>
+                <input id="jf-filter-input"
+                       type="text"
+                       x-model="jsonFilter"
+                       placeholder="Search text or JSONPath starting with $"
+                       @keydown.enter="saveFilterToHistory(jsonFilter); if (!jsonFilter.trim().startsWith('$')) nextMatch()"
+                       @keydown.shift.enter.prevent="prevMatch()"
+                       @keydown.escape="toggleJsonFilter()"
+                       @focus="histOpen = jsonFilterHistory.length > 0"
+                       @blur="setTimeout(() => histOpen = false, 150)"
+                       class="flex-1 text-xs font-mono bg-transparent outline-none min-w-0"
+                       style="color:var(--color-text-input); caret-color:var(--color-brand);"
+                       autocomplete="off" spellcheck="false">
+
+                {{-- Match count / result count / error --}}
+                <span x-show="jsonPathError"
+                      x-text="jsonPathError"
+                      class="flex-shrink-0 text-[10px]"
+                      style="color:var(--color-danger);"></span>
+                <span x-show="!jsonPathError && jsonFilter.trim() && jsonPathCount > 0"
+                      class="flex-shrink-0 text-[10px] whitespace-nowrap"
+                      style="color:var(--color-text-muted-4);">
+                    <span x-show="jsonMatchIndex >= 0" x-text="(jsonMatchIndex + 1) + ' / '" style="color:var(--color-brand);"></span><span x-text="jsonPathCount + (jsonFilter.trim().startsWith('$') ? (jsonPathCount===1?' result':' results') : (jsonPathCount===1?' match':' matches'))"></span>
+                </span>
+
+                {{-- Prev / Next (text search only) --}}
+                <div x-show="jsonFilter.trim() && !jsonFilter.trim().startsWith('$') && jsonPathCount > 0"
+                     class="flex items-center flex-shrink-0" style="gap:1px;">
+                    <button @click="prevMatch()" title="Previous match (Shift+Enter)"
+                            class="px-1.5 py-0.5 rounded text-[11px] leading-none transition-colors"
+                            style="color:var(--color-text-muted-4); border:1px solid var(--color-border-subtle);"
+                            onmouseover="this.style.color='var(--color-text-muted-1)'"
+                            onmouseout="this.style.color='var(--color-text-muted-4)'">↑</button>
+                    <button @click="nextMatch()" title="Next match (Enter)"
+                            class="px-1.5 py-0.5 rounded text-[11px] leading-none transition-colors"
+                            style="color:var(--color-text-muted-4); border:1px solid var(--color-border-subtle);"
+                            onmouseover="this.style.color='var(--color-text-muted-1)'"
+                            onmouseout="this.style.color='var(--color-text-muted-4)'">↓</button>
                 </div>
+
+                {{-- Clear + close --}}
                 <button x-show="jsonFilter.trim()"
-                        @click="clearJsonFilter()"
+                        @click="jsonFilter = ''; jsonPathResult = null; jsonPathCount = 0; jsonMatchIndex = -1; $nextTick(() => document.getElementById('jf-filter-input')?.focus())"
                         class="flex-shrink-0 text-xs leading-none transition-colors"
                         style="color:var(--color-text-muted-4);"
                         onmouseover="this.style.color='var(--color-text-muted-1)'"
                         onmouseout="this.style.color='var(--color-text-muted-4)'">✕</button>
-                <button @click="jsonFilterHide = !jsonFilterHide"
-                        class="flex-shrink-0 flex items-center gap-1 text-[10px] font-medium transition-colors whitespace-nowrap"
-                        :style="jsonFilterHide ? 'color:var(--color-brand)' : 'color:var(--color-text-muted-4)'"
-                        title="Hide non-matching items">
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 9h10M11 14h2"/>
-                    </svg>
-                    <span>Hide</span>
-                </button>
-                <span class="flex-shrink-0 text-[10px]" style="color:var(--color-text-muted-5);">ESC to close</span>
+                <span class="flex-shrink-0 text-[10px]" style="color:var(--color-text-muted-5);">ESC</span>
             </div>
             {{-- History dropdown --}}
             <div x-show="histOpen && jsonFilterHistory.length > 0"
@@ -255,13 +269,20 @@
                  style="top:100%; background:var(--color-bg-elevated); border:1px solid var(--color-border-menu); border-top:none; box-shadow:0 8px 24px rgba(0,0,0,.45);">
                 <p class="px-4 pt-1 pb-1 text-[9px] uppercase tracking-widest" style="color:var(--color-text-muted-5);">Recent</p>
                 <template x-for="h in jsonFilterHistory" :key="h">
-                    <button @click="jsonFilter = h; histOpen = false; $nextTick(() => document.getElementById('jf-filter-input')?.focus())"
-                            class="w-full text-left px-4 py-1.5 text-xs font-mono transition-colors"
-                            style="color:var(--color-text-muted-2);"
-                            onmouseover="this.style.background='var(--color-bg-hover-row)'"
-                            onmouseout="this.style.background=''">
-                        <span x-text="h"></span>
-                    </button>
+                    <div class="flex items-center group"
+                         onmouseover="this.style.background='var(--color-bg-hover-row)'"
+                         onmouseout="this.style.background=''">
+                        <button @click="jsonFilter = h; histOpen = false; $nextTick(() => document.getElementById('jf-filter-input')?.focus())"
+                                class="flex-1 text-left px-4 py-1.5 text-xs font-mono"
+                                style="color:var(--color-text-muted-2);">
+                            <span x-text="h"></span>
+                        </button>
+                        <button @click.stop="removeHistoryItem(h)"
+                                class="px-3 py-1.5 text-xs flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                style="color:var(--color-text-muted-4);"
+                                onmouseover="this.style.color='var(--color-danger)'"
+                                onmouseout="this.style.color='var(--color-text-muted-4)'">✕</button>
+                    </div>
                 </template>
             </div>
         </div>
@@ -270,6 +291,27 @@
         <div class="flex-1 overflow-y-auto">
             {{-- Body tab --}}
             <div x-show="activeTab?.responseTab === 'body'">
+
+                {{-- JSONPath result status bar --}}
+                <div x-show="jsonFilterOpen && jsonFilter.trim() && activeTab?.responseViewMode !== 'raw'"
+                     x-cloak
+                     class="px-4 py-1.5 text-[10px] flex items-center gap-1 border-b flex-shrink-0"
+                     style="background:var(--color-bg-surface); border-color:var(--color-border-subtle);">
+                    <template x-if="!jsonPathError && jsonPathCount > 0">
+                        <span>
+                            <span style="color:var(--color-brand);" x-text="jsonPathCount + (jsonFilter.trim().startsWith('$') ? (jsonPathCount === 1 ? ' result' : ' results') : (jsonPathCount === 1 ? ' match' : ' matches'))"></span>
+                            <span style="color:var(--color-text-muted-4);"> for </span>
+                            <span class="font-mono" style="color:var(--color-text-muted-2);" x-text="jsonFilter"></span>
+                        </span>
+                    </template>
+                    <template x-if="!jsonPathError && jsonPathCount === 0 && jsonFilter.trim()">
+                        <span style="color:var(--color-text-muted-4);">No matches</span>
+                    </template>
+                    <template x-if="jsonPathError">
+                        <span style="color:var(--color-danger);" x-text="jsonPathError"></span>
+                    </template>
+                </div>
+
                 <pre x-show="!(activeTab?.responseViewMode === 'preview' && detectContentType(activeTab?.response?.response_headers) === 'html')"
                      :class="detectContentType(activeTab?.response?.response_headers) === 'image' || detectContentType(activeTab?.response?.response_headers) === 'audio'
                           ? 'p-4'
