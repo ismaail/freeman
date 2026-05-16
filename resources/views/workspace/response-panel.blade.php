@@ -278,7 +278,7 @@
                             <span x-text="h"></span>
                         </button>
                         <button @click.stop="removeHistoryItem(h)"
-                                class="px-3 py-1.5 text-xs flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                class="px-3 py-1.5 text-base flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                 style="color:var(--color-text-muted-4);"
                                 onmouseover="this.style.color='var(--color-danger)'"
                                 onmouseout="this.style.color='var(--color-text-muted-4)'">✕</button>
