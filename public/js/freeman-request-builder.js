@@ -246,6 +246,9 @@ document.addEventListener('alpine:init', () => {
                 tab.response = { success: false, error: e.message, status: 0, response_time_ms: 0, response_body: '', response_headers: {} };
             } finally {
                 tab.isLoading = false;
+                if (tab.requestId === null) {
+                    Alpine.store('workspace').persistTabs();
+                }
             }
         },
 

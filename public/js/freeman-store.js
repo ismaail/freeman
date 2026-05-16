@@ -89,24 +89,44 @@ document.addEventListener('alpine:init', () => {
             const ids = this.tabs.filter(t => t.requestId).map(t => t.requestId);
             localStorage.setItem('freeman_open_tabs', JSON.stringify(ids));
             localStorage.setItem('freeman_active_tab', String(this.activeTab?.requestId ?? ''));
+
+            const scratchTabs = this.tabs
+                .filter(t => t.requestId === null && t.response !== null)
+                .map(({ id, request, response, requestTab, responseTab, responseViewMode, responseForceType, collectionVars, isDirty, savedSnapshot }) =>
+                    ({ id, request, response, requestTab, responseTab, responseViewMode, responseForceType, collectionVars, isDirty, savedSnapshot })
+                );
+            localStorage.setItem('freeman_scratch_tabs', JSON.stringify(scratchTabs));
         },
 
         async restoreTabs() {
             try {
                 const saved       = JSON.parse(localStorage.getItem('freeman_open_tabs') || '[]');
                 const activeReqId = localStorage.getItem('freeman_active_tab') || '';
-                if (!saved.length) return;
 
-                await Promise.all(saved.map(id => this.openRequest(id)));
+                if (saved.length) {
+                    await Promise.all(saved.map(id => this.openRequest(id)));
 
-                if (activeReqId) {
-                    const tab = this.tabs.find(t => String(t.requestId) === activeReqId);
-                    if (tab) this.activeTabId = tab.id;
+                    if (activeReqId) {
+                        const tab = this.tabs.find(t => String(t.requestId) === activeReqId);
+                        if (tab) this.activeTabId = tab.id;
+                    }
+                }
+
+                const rawScratch = localStorage.getItem('freeman_scratch_tabs');
+                if (rawScratch) {
+                    const scratchTabs = JSON.parse(rawScratch);
+                    for (const stored of scratchTabs) {
+                        this.tabs.push({ ...stored, isLoading: false });
+                    }
+                    if (!this.activeTabId && this.tabs.length) {
+                        this.activeTabId = this.tabs[0].id;
+                    }
                 }
             } catch (e) {
                 console.error('restoreTabs:', e);
                 localStorage.removeItem('freeman_open_tabs');
                 localStorage.removeItem('freeman_active_tab');
+                localStorage.removeItem('freeman_scratch_tabs');
             }
         },
 
